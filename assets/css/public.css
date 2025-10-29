@@ -19,3 +19,15 @@
 .va-btn{ background: var(--va-accent); color:#fff; padding:12px 16px; border:none; border-radius: var(--va-radius); cursor:pointer; font-weight:700; }
 .va-btn:disabled{ opacity:.7; cursor:not-allowed; }
 .va-msg{ margin-top:10px; font-weight:600; }
+
+/* Multi-step layout */
+.va-steps { display:block; }
+.va-step { background:#fff; padding:1rem; border-radius: var(--va-radius,14px); box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+.va-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.va-field.full { grid-column: 1 / -1; }
+.va-actions { margin-top: .75rem; display:flex; gap:.5rem; }
+.va-btn { padding:.6rem 1rem; border-radius:12px; border:none; background: var(--va-accent,#6366f1); color:#fff; cursor:pointer; }
+.va-btn:disabled { opacity:.6; cursor:not-allowed; }
+.va-msg { margin-top: .75rem; }
+.va-msg.err{ color:#b91c1c;}
+.va-msg.ok{ color:#065f46;}

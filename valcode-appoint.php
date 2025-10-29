@@ -56,7 +56,10 @@ class Valcode_Appoint {
         // AJAX
         add_action( 'wp_ajax_valcode_get_workers', [ $this, 'ajax_get_workers' ] );
         add_action( 'wp_ajax_nopriv_valcode_get_workers', [ $this, 'ajax_get_workers' ] );
-        add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
+        
+        add_action( 'wp_ajax_valcode_get_slots', [ $this, 'ajax_get_slots' ] );
+        add_action( 'wp_ajax_nopriv_valcode_get_slots', [ $this, 'ajax_get_slots' ] );
+add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_nopriv_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_valcode_get_events', [ $this, 'ajax_get_events' ] );
 
@@ -805,8 +808,88 @@ class Valcode_Appoint {
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-availability&deleted=1') ); exit;
     }
 
-    // ---------- AJAX HELPERS ----------
-    public function ajax_get_workers() {
+    
+    // ---------- AVAILABILITY & SLOTS HELPERS ----------
+    private function get_service($id){
+        global $wpdb;
+        return $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$this->tables['services']} WHERE id=%d AND active=1", $id) );
+    }
+    private function staff_is_available_rule($staff_id, $start_dt, $end_dt){
+        // Check weekday/time window against availability rules
+        global $wpdb;
+        $weekday = (int) wp_date('w', strtotime($start_dt)); // 0..6
+        $time_start = wp_date('H:i:s', strtotime($start_dt));
+        $time_end   = wp_date('H:i:s', strtotime($end_dt));
+        $rows = $wpdb->get_results( $wpdb->prepare("SELECT * FROM {$this->tables['availability']} WHERE staff_id=%d AND active=1 AND weekday=%d", $staff_id, $weekday) );
+        foreach($rows as $r){
+            if($r->start_time <= $time_start && $r->end_time >= $time_end){
+                return true;
+            }
+        }
+        return false;
+    }
+    private function conflicts_with_blockers($staff_id, $start_dt, $end_dt){
+        global $wpdb;
+        $sql = "SELECT id FROM {$this->tables['blockers']} 
+                WHERE staff_id=%d AND ((start_datetime < %s AND end_datetime > %s) OR (start_datetime >= %s AND start_datetime < %s))";
+        $row = $wpdb->get_var( $wpdb->prepare($sql, $staff_id, $end_dt, $start_dt, $start_dt, $end_dt) );
+        return !empty($row);
+    }
+    private function conflicts_with_appointments($staff_id, $start_dt, $end_dt){
+        global $wpdb;
+        $sql = "SELECT id FROM {$this->tables['appointments']}
+                WHERE status NOT IN ('canceled','cancelled') 
+                AND staff_id = %d 
+                AND ((starts_at < %s AND ends_at > %s) OR (starts_at >= %s AND starts_at < %s))";
+        $row = $wpdb->get_var( $wpdb->prepare($sql, $staff_id, $end_dt, $start_dt, $start_dt, $end_dt) );
+        return !empty($row);
+    }
+    private function is_slot_free($staff_id, $service_id, $start_dt){
+        $service = $this->get_service($service_id);
+        if(!$service) return false;
+        $dur = (int)$service->duration_minutes;
+        $end_dt = date('Y-m-d H:i:s', strtotime($start_dt.' +'.$dur.' minutes'));
+        if(!$this->staff_is_available_rule($staff_id, $start_dt, $end_dt)) return false;
+        if($this->conflicts_with_blockers($staff_id, $start_dt, $end_dt)) return false;
+        if($this->conflicts_with_appointments($staff_id, $start_dt, $end_dt)) return false;
+        return true;
+    }
+    private function generate_time_slots($staff_id, $service_id, $date_str, $slot_len=30){
+        // date_str = 'Y-m-d'
+        $service = $this->get_service($service_id);
+        if(!$service) return [];
+        $dur = max( (int)$service->duration_minutes, $slot_len );
+        $ts_date = strtotime($date_str.' 00:00:00');
+        $weekday = (int) wp_date('w', $ts_date);
+        global $wpdb;
+        $rules = $wpdb->get_results( $wpdb->prepare("SELECT * FROM {$this->tables['availability']} WHERE staff_id=%d AND active=1 AND weekday=%d ORDER BY start_time", $staff_id, $weekday) );
+        $slots = [];
+        foreach($rules as $r){
+            $start_ts = strtotime($date_str.' '.$r->start_time);
+            $end_ts   = strtotime($date_str.' '.$r->end_time);
+            for($t=$start_ts; $t+$dur*60 <= $end_ts; $t += $slot_len*60){
+                $start_dt = date('Y-m-d H:i:s', $t);
+                if($this->is_slot_free($staff_id, $service_id, $start_dt)){
+                    $slots[] = [ 'start'=>$start_dt, 'label'=> wp_date('H:i', $t) ];
+                }
+            }
+        }
+        return $slots;
+    }
+// ---------- AJAX HELPERS ----------
+    
+    public function ajax_get_slots(){
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        $service_id = absint( $_GET['service_id'] ?? 0 );
+        $staff_id   = absint( $_GET['staff_id'] ?? 0 );
+        $date       = sanitize_text_field( $_GET['date'] ?? '' ); // Y-m-d
+        if(!$service_id || !$staff_id || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)){
+            wp_send_json_error(['message'=>'Ungültige Parameter.']); return;
+        }
+        $slots = $this->generate_time_slots($staff_id, $service_id, $date, 30);
+        wp_send_json_success(['slots'=>$slots]);
+    }
+public function ajax_get_workers() {
         check_ajax_referer('valcode_appoint_nonce', 'nonce');
         global $wpdb;
         $service_id = isset($_GET['service_id']) ? absint($_GET['service_id']) : 0;
@@ -838,7 +921,72 @@ class Valcode_Appoint {
         if ($ts === false) { wp_send_json_error(['message'=>'Ungültiges Datum.']); return; }
         $starts_at = date('Y-m-d H:i:s', $ts);
 
-        // TODO: Optional availability check against rules & blockers
+        
+        $service = $this->get_service($service_id);
+        if(!$service){ wp_send_json_error(['message'=>'Service nicht gefunden.']); return; }
+        $duration = (int)$service->duration_minutes;
+        $ends_at = date('Y-m-d H:i:s', strtotime($starts_at.' +'.$duration.' minutes'));
+
+        if(!$staff_id){ wp_send_json_error(['message'=>'Bitte Mitarbeiter wählen.']); return; }
+
+        if( ! $this->is_slot_free($staff_id, $service_id, $starts_at) ){
+            wp_send_json_error(['message'=>'Dieser Slot ist nicht mehr verfügbar. Bitte anderen Zeitpunkt wählen.']); return;
+        }
+
+        // Insert & prevent race by re-checking
+        $ok = $wpdb->insert( $this->tables['appointments'], [
+            'customer_name' => $customer_name,
+            'customer_email'=> $customer_email,
+            'service_id'    => $service_id,
+            'staff_id'      => $staff_id,
+            'starts_at'     => $starts_at,
+            'ends_at'       => $ends_at,
+            'notes'         => $notes,
+            'status'        => 'confirmed',
+            'created_at'    => current_time('mysql')
+        ], [ '%s','%s','%d','%d','%s','%s','%s','%s','%s' ] );
+        if(!$ok){ wp_send_json_error(['message'=>'Konnte nicht speichern.']); return; }
+
+        $appt_id = $wpdb->insert_id;
+
+        // Build ICS
+        $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+        $uid = $appt_id.'@'.parse_url( home_url(), PHP_URL_HOST );
+        $summary = $blogname.' – Termin: '.$service->name;
+        $desc = "Service: {$service->name}\nName: {$customer_name}\nEmail: {$customer_email}\nHinweise: {$notes}";
+        $dtstart = gmdate('Ymd\THis\Z', strtotime(get_date_from_gmt( get_gmt_from_date( $starts_at ), 'Y-m-d H:i:s' )));
+        $dtend   = gmdate('Ymd\THis\Z', strtotime(get_date_from_gmt( get_gmt_from_date( $ends_at ), 'Y-m-d H:i:s' )));
+        $ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Valcode Appoint//DE\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:$uid\r\nSUMMARY:".esc_html($summary)."\r\nDTSTART:$dtstart\r\nDTEND:$dtend\r\nDESCRIPTION:".esc_html($desc)."\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+
+        // Email both customer and admin
+        $admin_email = get_option('admin_email');
+        $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+        $attachments = [];
+        $tmp = wp_upload_dir();
+        $ics_path = trailingslashit($tmp['basedir'])."appoint-$appt_id.ics";
+        file_put_contents($ics_path, $ics);
+        $attachments[] = $ics_path;
+
+        $gcal_link = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='.rawurlencode($summary)
+            .'&dates='.gmdate('Ymd\THis\Z', strtotime($starts_at)).'%2F'.gmdate('Ymd\THis\Z', strtotime($ends_at))
+            .'&details='.rawurlencode("{$desc}").'&sf=true&output=xml';
+
+        $body_html = '<p>Danke für Ihre Buchung!</p><p><strong>'.esc_html($service->name).'</strong><br/>'
+            . esc_html( wp_date('d.m.Y H:i', strtotime($starts_at)) ) . ' – '
+            . esc_html( wp_date('H:i', strtotime($ends_at)) ) . '</p>'
+            . '<p><a href="'.esc_url($gcal_link).'" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a></p>';
+
+        if($customer_email){
+            wp_mail($customer_email, 'Buchungsbestätigung', $body_html, $headers, $attachments);
+        }
+        wp_mail($admin_email, 'Neue Buchung', $body_html, $headers, $attachments);
+
+        wp_send_json_success([
+            'message'=>'Termin bestätigt. Bestätigung per E-Mail gesendet.',
+            'appointment_id' => $appt_id,
+            'gcal' => $gcal_link
+        ]); return;
+
 
         $wpdb->insert( $this->tables['appointments'], [
             'customer_name' => $customer_name,
@@ -907,33 +1055,68 @@ class Valcode_Appoint {
         wp_enqueue_script( 'valcode-appoint' );
 
         ob_start(); ?>
-        <form class="va-booking-form va-card" id="va-booking" autocomplete="on">
-            <div class="va-form-grid">
-                <div class="va-field"><label for="va_customer">Dein Name</label><input id="va_customer" name="customer_name" type="text" placeholder="Max Muster" required/></div>
-                <div class="va-field"><label for="va_email">E-Mail</label><input id="va_email" name="customer_email" type="email" placeholder="max@example.com"/></div>
+        
+<form id="va-booking" class="va-form" novalidate>
+    <div class="va-steps">
+        <div class="va-step" data-step="1">
+            <h3>1) Service & Mitarbeiter</h3>
+            <div class="va-grid">
                 <div class="va-field">
                     <label for="va_service">Service</label>
                     <select id="va_service" name="service_id" required>
                         <option value="">Bitte wählen…</option>
                         <?php foreach ($services as $s): ?>
-                            <option value="<?php echo (int)$s->id; ?>"><?php echo esc_html($s->name); ?></option>
+                            <option value="<?php echo (int)$s->id; ?>"><?php echo esc_html($s->name); ?> (<?php echo (int)$s->duration_minutes; ?> min)</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="va-field">
                     <label for="va_worker">Mitarbeiter</label>
-                    <select id="va_worker" name="staff_id" disabled>
+                    <select id="va_worker" name="staff_id" disabled required>
                         <option value="">Bitte zuerst Service wählen…</option>
                     </select>
                 </div>
-                <div class="va-field"><label for="va_datetime">Datum &amp; Zeit</label><input id="va_datetime" name="starts_at" type="datetime-local" required/></div>
-                <div class="va-field full"><label for="va_notes">Notizen</label><textarea id="va_notes" name="notes" rows="3" placeholder="Optional: Wünsche oder Hinweise"></textarea></div>
+            </div>
+            <div class="va-actions"><button type="button" class="va-btn va-next" data-next="2" disabled>Weiter</button></div>
+        </div>
+
+        <div class="va-step" data-step="2" hidden>
+            <h3>2) Datum & Zeit</h3>
+            <div class="va-grid">
+                <div class="va-field">
+                    <label for="va_date">Datum</label>
+                    <input id="va_date" type="date" required/>
+                </div>
+                <div class="va-field">
+                    <label for="va_slot">Zeit</label>
+                    <select id="va_slot" required disabled>
+                        <option value="">Bitte Datum wählen…</option>
+                    </select>
+                </div>
             </div>
             <div class="va-actions">
+                <button type="button" class="va-btn va-prev" data-prev="1">Zurück</button>
+                <button type="button" class="va-btn va-next" data-next="3" disabled>Weiter</button>
+            </div>
+        </div>
+
+        <div class="va-step" data-step="3" hidden>
+            <h3>3) Deine Angaben</h3>
+            <div class="va-grid">
+                <div class="va-field"><label for="va_name">Name</label><input id="va_name" name="customer_name" required placeholder="Max Muster"></div>
+                <div class="va-field"><label for="va_email">E-Mail</label><input id="va_email" name="customer_email" type="email" placeholder="max@example.com"></div>
+                <div class="va-field full"><label for="va_notes">Notizen</label><textarea id="va_notes" name="notes" placeholder="Optional: Wünsche oder Hinweise"></textarea></div>
+                <input type="hidden" id="va_starts_at" name="starts_at">
+            </div>
+            <div class="va-actions">
+                <button type="button" class="va-btn va-prev" data-prev="2">Zurück</button>
                 <button type="submit" class="va-btn">Termin buchen</button>
             </div>
             <p class="va-msg" id="va_msg" hidden></p>
-        </form>
+        </div>
+    </div>
+</form>
+
         <?php
         return ob_get_clean();
     }
