@@ -1,0 +1,59 @@
+# === WordPress Plugin .gitignore ===
+# Ignore system and IDE files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Node / NPM / Composer dependencies
+node_modules/
+vendor/
+package-lock.json
+yarn.lock
+composer.lock
+
+# Build / Compiled files
+/dist/
+/build/
+/assets/dist/
+/*.zip
+*.tar.gz
+*.log
+*.map
+
+# OS and editor specific
+*.swp
+*.swo
+*.bak
+*.tmp
+*.orig
+*.log
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# WordPress specific
+wp-content/uploads/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/ai1wm-backups/
+wp-content/backups/
+wp-content/debug.log
+wp-config.php
+.htaccess
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# Testing
+phpunit.xml
+phpunit.xml.dist
+tests/_output/
+coverage/
+
+# Deployment scripts
+deploy.sh
