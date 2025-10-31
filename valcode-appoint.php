@@ -1049,73 +1049,125 @@ public function ajax_get_workers() {
     // ---------- SHORTCODE FRONTEND (styled + saves) ----------
     public function shortcode_form( $atts ) {
         global $wpdb;
-        $services = $wpdb->get_results( "SELECT id, name FROM {$this->tables['services']} WHERE active=1 ORDER BY name" );
+        $services = $wpdb->get_results( "SELECT id, name, duration_minutes, price FROM {$this->tables['services']} WHERE active=1 ORDER BY name" );
 
         wp_enqueue_style( 'valcode-appoint-public' );
         wp_enqueue_script( 'valcode-appoint' );
 
         ob_start(); ?>
         
-<form id="va-booking" class="va-form" novalidate>
-    <div class="va-steps">
-        <div class="va-step" data-step="1">
-            <h3>1) Service & Mitarbeiter</h3>
-            <div class="va-grid">
+    <div class="va-booking-form">
+        <form id="va-booking" novalidate>
+            
+            <!-- Step 1: Service & Mitarbeiter -->
+            <div class="va-step" data-step="1">
+                <h3>Service & Mitarbeiter wählen</h3>
+                
                 <div class="va-field">
-                    <label for="va_service">Service</label>
+                    <label for="va_service">Service auswählen</label>
                     <select id="va_service" name="service_id" required>
                         <option value="">Bitte wählen…</option>
                         <?php foreach ($services as $s): ?>
-                            <option value="<?php echo (int)$s->id; ?>"><?php echo esc_html($s->name); ?> (<?php echo (int)$s->duration_minutes; ?> min)</option>
+                            <option value="<?php echo (int)$s->id; ?>">
+                                <?php echo esc_html($s->name); ?> 
+                                (<?php echo (int)$s->duration_minutes; ?> Min, 
+                                CHF <?php echo number_format((float)$s->price, 2); ?>)
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
+
                 <div class="va-field">
-                    <label for="va_worker">Mitarbeiter</label>
+                    <label for="va_worker">Mitarbeiter auswählen</label>
                     <select id="va_worker" name="staff_id" disabled required>
                         <option value="">Bitte zuerst Service wählen…</option>
                     </select>
                 </div>
-            </div>
-            <div class="va-actions"><button type="button" class="va-btn va-next" data-next="2" disabled>Weiter</button></div>
-        </div>
 
-        <div class="va-step" data-step="2" hidden>
-            <h3>2) Datum & Zeit</h3>
-            <div class="va-grid">
+                <div class="va-actions">
+                    <button type="button" id="va_next_1" class="va-btn" disabled>Weiter</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Datum wählen -->
+            <div class="va-step" data-step="2" hidden>
+                <h3>Datum wählen</h3>
+                
                 <div class="va-field">
-                    <label for="va_date">Datum</label>
+                    <label for="va_date">Wunschdatum</label>
                     <input id="va_date" type="date" required/>
                 </div>
-                <div class="va-field">
-                    <label for="va_slot">Zeit</label>
-                    <select id="va_slot" required disabled>
-                        <option value="">Bitte Datum wählen…</option>
-                    </select>
+
+                <div class="va-actions">
+                    <button type="button" id="va_prev_2" class="va-btn va-prev">Zurück</button>
+                    <button type="button" id="va_next_2" class="va-btn" disabled>Weiter</button>
                 </div>
             </div>
-            <div class="va-actions">
-                <button type="button" class="va-btn va-prev" data-prev="1">Zurück</button>
-                <button type="button" class="va-btn va-next" data-next="3" disabled>Weiter</button>
-            </div>
-        </div>
 
-        <div class="va-step" data-step="3" hidden>
-            <h3>3) Deine Angaben</h3>
-            <div class="va-grid">
-                <div class="va-field"><label for="va_name">Name</label><input id="va_name" name="customer_name" required placeholder="Max Muster"></div>
-                <div class="va-field"><label for="va_email">E-Mail</label><input id="va_email" name="customer_email" type="email" placeholder="max@example.com"></div>
-                <div class="va-field full"><label for="va_notes">Notizen</label><textarea id="va_notes" name="notes" placeholder="Optional: Wünsche oder Hinweise"></textarea></div>
+            <!-- Step 3: Zeit wählen -->
+            <div class="va-step" data-step="3" hidden>
+                <h3>Zeit wählen</h3>
+                
+                <div id="va_slots" class="va-slots-grid">
+                    <p class="va-loading">Bitte wählen Sie zuerst ein Datum</p>
+                </div>
+
                 <input type="hidden" id="va_starts_at" name="starts_at">
+
+                <div class="va-actions">
+                    <button type="button" id="va_prev_3" class="va-btn va-prev">Zurück</button>
+                    <button type="button" id="va_next_3" class="va-btn" disabled>Weiter</button>
+                </div>
             </div>
-            <div class="va-actions">
-                <button type="button" class="va-btn va-prev" data-prev="2">Zurück</button>
-                <button type="submit" class="va-btn">Termin buchen</button>
+
+            <!-- Step 4: Persönliche Daten -->
+            <div class="va-step" data-step="4" hidden>
+                <h3>Ihre Kontaktdaten</h3>
+                
+                <div class="va-grid">
+                    <div class="va-field">
+                        <label for="va_name">Vor- und Nachname *</label>
+                        <input id="va_name" name="customer_name" type="text" required placeholder="Max Muster">
+                    </div>
+
+                    <div class="va-field">
+                        <label for="va_email">E-Mail-Adresse *</label>
+                        <input id="va_email" name="customer_email" type="email" required placeholder="max@beispiel.ch">
+                    </div>
+
+                    <div class="va-field full">
+                        <label for="va_notes">Notizen / Wünsche (optional)</label>
+                        <textarea id="va_notes" name="notes" rows="4" placeholder="Besondere Wünsche oder Hinweise für Ihren Termin..."></textarea>
+                    </div>
+                </div>
+
+                <div class="va-actions">
+                    <button type="button" id="va_prev_4" class="va-btn va-prev">Zurück</button>
+                    <button type="submit" class="va-btn">Termin verbindlich buchen</button>
+                </div>
+
+                <p class="va-msg" id="va_msg" hidden></p>
             </div>
-            <p class="va-msg" id="va_msg" hidden></p>
-        </div>
+
+            <!-- Step 5: Success -->
+            <div class="va-step" data-step="5" hidden>
+                <div class="va-success-content">
+                    <div class="va-success-icon">✅</div>
+                    <h3>Buchung erfolgreich!</h3>
+                    
+                    <div class="va-success-details" id="va_success_msg">
+                        <p>Ihre Buchung wurde erfolgreich gespeichert.</p>
+                        <p>Sie erhalten in Kürze eine Bestätigungs-E-Mail mit allen Details und einem Kalendereintrag.</p>
+                    </div>
+
+                    <button type="button" class="va-btn va-btn-new" onclick="window.location.reload()">
+                        Neuen Termin buchen
+                    </button>
+                </div>
+            </div>
+
+        </form>
     </div>
-</form>
 
         <?php
         return ob_get_clean();
