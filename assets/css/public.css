@@ -6,28 +6,369 @@
   --va-font: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   --va-border:#e5e7eb;
 }
-.va-card{ background:#fff; border:1px solid var(--va-border); border-radius: var(--va-radius); box-shadow: 0 1px 2px rgba(2,6,23,.06); }
-.va-booking-form{ font-family: var(--va-font); padding:18px; max-width: 720px; margin: 10px 0; }
-.va-form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-.va-form-grid .full{ grid-column: 1/-1; }
-.va-booking-form .va-field{ display:flex; flex-direction:column; }
-.va-booking-form label{ font-weight:600; color: var(--va-primary); margin-bottom:6px; }
+
+.va-card{ 
+  background:#fff; 
+  border:1px solid var(--va-border); 
+  border-radius: var(--va-radius); 
+  box-shadow: 0 1px 2px rgba(2,6,23,.06); 
+}
+
+.va-booking-form{ 
+  font-family: var(--va-font); 
+  padding:18px; 
+  max-width: 720px; 
+  margin: 10px auto; 
+}
+
+.va-form-grid{ 
+  display:grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap:12px; 
+}
+
+.va-form-grid .full{ 
+  grid-column: 1/-1; 
+}
+
+.va-booking-form .va-field{ 
+  display:flex; 
+  flex-direction:column; 
+  margin-bottom: 16px;
+}
+
+.va-booking-form label{ 
+  font-weight:600; 
+  color: var(--va-primary); 
+  margin-bottom:8px;
+  font-size: 14px;
+}
+
 .va-booking-form select,
 .va-booking-form input,
-.va-booking-form textarea{ width:100%; padding:12px 14px; border:1px solid #d1d5db; border-radius: calc(var(--va-radius) - 2px); background:#fff; }
-.va-actions{ display:flex; justify-content:flex-end; margin-top: 12px; }
-.va-btn{ background: var(--va-accent); color:#fff; padding:12px 16px; border:none; border-radius: var(--va-radius); cursor:pointer; font-weight:700; }
-.va-btn:disabled{ opacity:.7; cursor:not-allowed; }
-.va-msg{ margin-top:10px; font-weight:600; }
+.va-booking-form textarea{ 
+  width:100%; 
+  padding:12px 14px; 
+  border:1px solid #d1d5db; 
+  border-radius: calc(var(--va-radius) - 2px); 
+  background:#fff;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.va-booking-form select:focus,
+.va-booking-form input:focus,
+.va-booking-form textarea:focus{
+  outline: none;
+  border-color: var(--va-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.va-actions{ 
+  display:flex; 
+  justify-content:space-between; 
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.va-btn{ 
+  background: var(--va-accent); 
+  color:#fff; 
+  padding:14px 24px; 
+  border:none; 
+  border-radius: calc(var(--va-radius) - 2px); 
+  cursor:pointer; 
+  font-weight:600;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.va-btn:hover:not(:disabled){ 
+  background: color-mix(in srgb, var(--va-accent) 85%, black);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.va-btn:disabled{ 
+  opacity:.5; 
+  cursor:not-allowed; 
+}
+
+.va-btn.va-prev{
+  background: #f3f4f6;
+  color: var(--va-primary);
+  flex: 0 0 auto;
+  padding: 14px 20px;
+}
+
+.va-btn.va-prev:hover:not(:disabled){
+  background: #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.va-msg{ 
+  margin-top:16px; 
+  font-weight:600;
+  padding: 12px 16px;
+  border-radius: calc(var(--va-radius) - 2px);
+  font-size: 14px;
+}
 
 /* Multi-step layout */
-.va-steps { display:block; }
-.va-step { background:#fff; padding:1rem; border-radius: var(--va-radius,14px); box-shadow: 0 2px 12px rgba(0,0,0,.06); }
-.va-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.va-field.full { grid-column: 1 / -1; }
-.va-actions { margin-top: .75rem; display:flex; gap:.5rem; }
-.va-btn { padding:.6rem 1rem; border-radius:12px; border:none; background: var(--va-accent,#6366f1); color:#fff; cursor:pointer; }
-.va-btn:disabled { opacity:.6; cursor:not-allowed; }
-.va-msg { margin-top: .75rem; }
-.va-msg.err{ color:#b91c1c;}
-.va-msg.ok{ color:#065f46;}
+.va-steps { 
+  display:block; 
+}
+
+.va-step { 
+  background:#fff; 
+  padding:32px; 
+  border-radius: var(--va-radius,14px); 
+  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  min-height: 500px;
+}
+
+.va-step h3{
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--va-primary);
+  margin: 0 0 24px 0;
+}
+
+.va-grid { 
+  display:grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 16px; 
+}
+
+.va-field.full { 
+  grid-column: 1 / -1; 
+}
+
+.va-msg.err{ 
+  color:#b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.va-msg.ok{ 
+  color:#065f46;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+/* Calendar Widget */
+.va-calendar-widget{
+  background: #fff;
+  border-radius: calc(var(--va-radius) - 2px);
+  padding: 20px;
+  border: 1px solid var(--va-border);
+}
+
+.va-calendar-header{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.va-calendar-header h4{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--va-primary);
+}
+
+.va-calendar-nav{
+  display: flex;
+  gap: 8px;
+}
+
+.va-calendar-nav button{
+  background: #f3f4f6;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.2s ease;
+}
+
+.va-calendar-nav button:hover{
+  background: #e5e7eb;
+}
+
+.va-calendar-grid{
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.va-calendar-day-header{
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 8px 4px;
+}
+
+.va-calendar-day{
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.va-calendar-day:hover:not(.disabled):not(.other-month){
+  background: #f3f4f6;
+}
+
+.va-calendar-day.disabled{
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.va-calendar-day.other-month{
+  color: #d1d5db;
+  cursor: default;
+}
+
+.va-calendar-day.selected{
+  background: var(--va-accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.va-calendar-day.today{
+  border-color: var(--va-accent);
+}
+
+/* Time Slots */
+.va-slots-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.va-slot-btn{
+  padding: 16px 12px;
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: calc(var(--va-radius) - 2px);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--va-primary);
+  transition: all 0.2s ease;
+  font-family: var(--va-font);
+}
+
+.va-slot-btn:hover:not(:disabled){
+  border-color: var(--va-accent);
+  background: rgba(99, 102, 241, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.va-slot-btn.selected{
+  background: var(--va-accent);
+  border-color: var(--va-accent);
+  color: #fff;
+}
+
+.va-slot-btn:disabled{
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.va-loading,
+.va-no-slots,
+.va-error{
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+.va-error{
+  color: #b91c1c;
+}
+
+/* Success Screen */
+.va-success-content{
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.va-success-icon{
+  font-size: 72px;
+  margin-bottom: 24px;
+  animation: successPop 0.5s ease;
+}
+
+@keyframes successPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.va-success-content h3{
+  font-size: 28px;
+  margin: 0 0 20px 0;
+  color: var(--va-primary);
+}
+
+.va-success-details{
+  background: #f9fafb;
+  border-radius: calc(var(--va-radius) - 2px);
+  padding: 24px;
+  margin: 24px 0;
+  text-align: left;
+  line-height: 1.8;
+}
+
+.va-success-details strong{
+  color: var(--va-primary);
+  display: block;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.va-btn-new{
+  margin-top: 24px;
+  max-width: 300px;
+}
+
+@media (max-width: 640px){
+  .va-grid{
+    grid-template-columns: 1fr;
+  }
+  
+  .va-step{
+    padding: 24px 16px;
+  }
+  
+  .va-actions{
+    flex-direction: column-reverse;
+  }
+  
+  .va-btn{
+    width: 100%;
+  }
+  
+  .va-slots-grid{
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

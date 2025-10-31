@@ -34,14 +34,137 @@
         if(el){ el.disabled = !yes; } 
     }
 
+    // Calendar Widget
+    function CalendarWidget(containerId, onDateSelect){
+        this.container = document.getElementById(containerId);
+        this.currentMonth = new Date();
+        this.currentMonth.setDate(1);
+        this.selectedDate = null;
+        this.onDateSelect = onDateSelect;
+        this.minAdvanceDays = parseInt(ValcodeAppoint.minAdvanceDays || '0', 10);
+        
+        this.render();
+    }
+    
+    CalendarWidget.prototype.render = function(){
+        var self = this;
+        var year = this.currentMonth.getFullYear();
+        var month = this.currentMonth.getMonth();
+        
+        var monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 
+                         'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        var dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        
+        var firstDay = new Date(year, month, 1);
+        var lastDay = new Date(year, month + 1, 0);
+        var prevLastDay = new Date(year, month, 0);
+        
+        var startDay = firstDay.getDay();
+        var daysInMonth = lastDay.getDate();
+        var prevDaysInMonth = prevLastDay.getDate();
+        
+        var html = '<div class="va-calendar-widget">';
+        html += '<div class="va-calendar-header">';
+        html += '<h4>' + monthNames[month] + ' ' + year + '</h4>';
+        html += '<div class="va-calendar-nav">';
+        html += '<button type="button" data-action="prev">◀</button>';
+        html += '<button type="button" data-action="next">▶</button>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div class="va-calendar-grid">';
+        
+        // Day headers
+        dayNames.forEach(function(day){
+            html += '<div class="va-calendar-day-header">' + day + '</div>';
+        });
+        
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Calculate minimum booking date
+        var minDate = new Date(today);
+        minDate.setDate(minDate.getDate() + this.minAdvanceDays);
+        minDate.setHours(0, 0, 0, 0);
+        
+        // Previous month days
+        for(var i = startDay - 1; i >= 0; i--){
+            var day = prevDaysInMonth - i;
+            html += '<div class="va-calendar-day other-month">' + day + '</div>';
+        }
+        
+        // Current month days
+        for(var day = 1; day <= daysInMonth; day++){
+            var date = new Date(year, month, day);
+            date.setHours(0, 0, 0, 0);
+            var classes = ['va-calendar-day'];
+            var disabled = date < minDate;
+            
+            if(date.getTime() === today.getTime()){
+                classes.push('today');
+            }
+            
+            if(this.selectedDate && date.getTime() === this.selectedDate.getTime()){
+                classes.push('selected');
+            }
+            
+            if(disabled){
+                classes.push('disabled');
+            }
+            
+            var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+            html += '<div class="' + classes.join(' ') + '" data-date="' + dateStr + '" data-disabled="' + disabled + '">' + day + '</div>';
+        }
+        
+        // Next month days
+        var remainingDays = 42 - (startDay + daysInMonth);
+        for(var day = 1; day <= remainingDays; day++){
+            html += '<div class="va-calendar-day other-month">' + day + '</div>';
+        }
+        
+        html += '</div></div>';
+        
+        this.container.innerHTML = html;
+        
+        // Event listeners
+        this.container.querySelectorAll('[data-action="prev"]').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                self.currentMonth.setMonth(self.currentMonth.getMonth() - 1);
+                self.render();
+            });
+        });
+        
+        this.container.querySelectorAll('[data-action="next"]').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                self.currentMonth.setMonth(self.currentMonth.getMonth() + 1);
+                self.render();
+            });
+        });
+        
+        this.container.querySelectorAll('.va-calendar-day[data-date]').forEach(function(day){
+            day.addEventListener('click', function(){
+                if(this.getAttribute('data-disabled') === 'true') return;
+                
+                var dateStr = this.getAttribute('data-date');
+                self.selectedDate = new Date(dateStr + 'T00:00:00');
+                self.render();
+                
+                if(self.onDateSelect){
+                    self.onDateSelect(dateStr);
+                }
+            });
+        });
+    };
+
     document.addEventListener('DOMContentLoaded', function(){
         var service = q('va_service');
         var worker  = q('va_worker');
-        var dateInp = q('va_date');
         var slotsContainer = q('va_slots');
         var form = q('va-booking');
         var startHidden = q('va_starts_at');
         var selectedSlot = null;
+        var selectedDate = null;
+        var bookedSlots = [];
 
         var next1 = q('va_next_1');
         var next2 = q('va_next_2');
@@ -50,18 +173,14 @@
         var prev3 = q('va_prev_3');
         var prev4 = q('va_prev_4');
 
-        // Set min date to today
-        if(dateInp){
-            var today = new Date().toISOString().split('T')[0];
-            dateInp.setAttribute('min', today);
-        }
+        var calendar = null;
 
         function refreshNext1(){
             enable(next1, !!service.value && !!worker.value);
         }
 
         function refreshNext2(){
-            enable(next2, !!dateInp.value);
+            enable(next2, !!selectedDate);
         }
 
         function refreshNext3(){
@@ -98,39 +217,48 @@
             worker.addEventListener('change', refreshNext1);
         }
 
-        // Step 2: Date change
-        if(dateInp){
-            dateInp.addEventListener('change', function(){
-                refreshNext2();
-                selectedSlot = null;
-                startHidden.value = '';
-                slotsContainer.innerHTML = '<p class="va-loading">Lade verfügbare Zeiten…</p>';
+        // Step 2: Initialize calendar
+        if(next1){
+            next1.addEventListener('click', function(){
+                goto(2);
+                if(!calendar){
+                    calendar = new CalendarWidget('va_calendar', function(dateStr){
+                        selectedDate = dateStr;
+                        refreshNext2();
+                        loadSlots(dateStr);
+                    });
+                }
+            });
+        }
+
+        function loadSlots(dateStr){
+            selectedSlot = null;
+            startHidden.value = '';
+            slotsContainer.innerHTML = '<p class="va-loading">Lade verfügbare Zeiten…</p>';
+            refreshNext3();
+
+            var params = new URLSearchParams();
+            params.set('action','valcode_get_slots');
+            params.set('nonce', ValcodeAppoint.nonce);
+            params.set('service_id', service.value);
+            params.set('staff_id', worker.value);
+            params.set('date', dateStr);
+
+            fetch(ValcodeAppoint.ajax + '?' + params.toString(), { credentials:'same-origin' })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res && res.success){
+                    var items = res.data.slots || [];
+                    bookedSlots = res.data.booked || [];
+                    renderSlots(items);
+                } else {
+                    slotsContainer.innerHTML = '<p class="va-no-slots">Keine freien Zeiten an diesem Tag</p>';
+                }
                 refreshNext3();
-
-                if(!dateInp.value) return;
-
-                var params = new URLSearchParams();
-                params.set('action','valcode_get_slots');
-                params.set('nonce', ValcodeAppoint.nonce);
-                params.set('service_id', service.value);
-                params.set('staff_id', worker.value);
-                params.set('date', dateInp.value);
-
-                fetch(ValcodeAppoint.ajax + '?' + params.toString(), { credentials:'same-origin' })
-                .then(function(r){ return r.json(); })
-                .then(function(res){
-                    if(res && res.success){
-                        var items = res.data.slots || [];
-                        renderSlots(items);
-                    } else {
-                        slotsContainer.innerHTML = '<p class="va-no-slots">Keine freien Zeiten an diesem Tag</p>';
-                    }
-                    refreshNext3();
-                })
-                .catch(function(){
-                    slotsContainer.innerHTML = '<p class="va-error">Fehler beim Laden der Zeiten</p>';
-                    refreshNext3();
-                });
+            })
+            .catch(function(){
+                slotsContainer.innerHTML = '<p class="va-error">Fehler beim Laden der Zeiten</p>';
+                refreshNext3();
             });
         }
 
@@ -148,7 +276,16 @@
                 btn.textContent = slot.label;
                 btn.setAttribute('data-start', slot.start);
                 
+                // Check if slot is booked
+                var isBooked = bookedSlots.indexOf(slot.start) !== -1;
+                if(isBooked){
+                    btn.disabled = true;
+                    btn.title = 'Dieser Zeitslot ist bereits gebucht';
+                }
+                
                 btn.addEventListener('click', function(){
+                    if(this.disabled) return;
+                    
                     document.querySelectorAll('.va-slot-btn').forEach(function(b){
                         b.classList.remove('selected');
                     });
@@ -163,7 +300,6 @@
         }
 
         // Navigation buttons
-        if(next1){ next1.addEventListener('click', function(){ goto(2); }); }
         if(prev2){ prev2.addEventListener('click', function(){ goto(1); }); }
         if(next2){ next2.addEventListener('click', function(){ goto(3); }); }
         if(prev3){ prev3.addEventListener('click', function(){ goto(2); }); }
@@ -198,7 +334,7 @@
                         if(successMsg){
                             var serviceName = service.options[service.selectedIndex].text;
                             var workerName = worker.options[worker.selectedIndex].text;
-                            var dateTime = dateInp.value + ' um ' + selectedSlot.split(' ')[1].substring(0,5);
+                            var dateTime = selectedDate + ' um ' + selectedSlot.split(' ')[1].substring(0,5);
                             
                             successMsg.innerHTML = '<strong>Ihre Buchung wurde bestätigt!</strong><br><br>' +
                                 'Service: ' + serviceName + '<br>' +
@@ -210,6 +346,8 @@
                         // Reset form
                         form.reset();
                         selectedSlot = null;
+                        selectedDate = null;
+                        calendar = null;
                         enable(worker, false);
                         setOptions(worker, [], 'Bitte zuerst Service wählen…');
                         slotsContainer.innerHTML = '';

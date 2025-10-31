@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Valcode Appoint
- * Description:       Booking plugin with admin for Services, Staff, Appointments (+Calendar & Edit), Availability rules, and a styled frontend form that saves appointments.
- * Version:           0.5.0
+ * Description:       Booking plugin with calendar widget, advance booking settings, and beautiful UI
+ * Version:           0.6.0
  * Author:            Valcode
  * License:           GPLv2 or later
  * Text Domain:       valcode-appoint
@@ -17,7 +17,7 @@ class Valcode_Appoint {
         return self::$instance;
     }
 
-    public $version = '0.5.0';
+    public $version = '0.6.0';
     public $tables = [];
 
     private function __construct() {
@@ -45,6 +45,7 @@ class Valcode_Appoint {
         add_action( 'admin_post_valcode_delete_appointment', [ $this, 'handle_delete_appointment' ] );
 
         add_action( 'admin_post_valcode_save_design', [ $this, 'handle_save_design' ] );
+        add_action( 'admin_post_valcode_save_settings', [ $this, 'handle_save_settings' ] );
 
         add_action( 'admin_post_valcode_save_availability', [ $this, 'handle_save_availability' ] );
         add_action( 'admin_post_valcode_delete_availability', [ $this, 'handle_delete_availability' ] );
@@ -59,7 +60,7 @@ class Valcode_Appoint {
         
         add_action( 'wp_ajax_valcode_get_slots', [ $this, 'ajax_get_slots' ] );
         add_action( 'wp_ajax_nopriv_valcode_get_slots', [ $this, 'ajax_get_slots' ] );
-add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
+        add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_nopriv_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_valcode_get_events', [ $this, 'ajax_get_events' ] );
 
@@ -120,7 +121,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         $sql_av = "CREATE TABLE {$this->tables['availability']} (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             staff_id BIGINT UNSIGNED NOT NULL,
-            weekday TINYINT UNSIGNED NOT NULL, -- 0=Sun .. 6=Sat
+            weekday TINYINT UNSIGNED NOT NULL,
             start_time TIME NOT NULL,
             end_time TIME NOT NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
@@ -155,6 +156,13 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
                 'font_family'   => 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
             ]);
         }
+
+        // Settings options
+        if ( false === get_option('valcode_appoint_settings') ) {
+            add_option('valcode_appoint_settings', [
+                'min_advance_days' => 0,
+            ]);
+        }
     }
 
     public function admin_menu() {
@@ -174,6 +182,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         add_submenu_page('valcode-appoint', __('Kalender','valcode-appoint'), __('Kalender','valcode-appoint'), 'manage_options', 'valcode-appoint-calendar', [ $this, 'render_calendar' ]);
         add_submenu_page('valcode-appoint', __('Verfügbarkeit','valcode-appoint'), __('Verfügbarkeit','valcode-appoint'), 'manage_options', 'valcode-appoint-availability', [ $this, 'render_availability' ]);
         add_submenu_page('valcode-appoint', __('Design','valcode-appoint'), __('Design','valcode-appoint'), 'manage_options', 'valcode-appoint-design', [ $this, 'render_design' ]);
+        add_submenu_page('valcode-appoint', __('Einstellungen','valcode-appoint'), __('Einstellungen','valcode-appoint'), 'manage_options', 'valcode-appoint-settings', [ $this, 'render_settings' ]);
     }
 
     public function enqueue_admin($hook) {
@@ -203,10 +212,14 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         wp_add_inline_style( 'valcode-appoint-public', ":root{--va-primary: {$primary}; --va-accent: {$accent}; --va-radius: {$radius}; --va-font: {$font};}" );
         wp_enqueue_style( 'valcode-appoint-public' );
 
+        $settings = get_option('valcode_appoint_settings', []);
+        $min_advance = isset($settings['min_advance_days']) ? (int)$settings['min_advance_days'] : 0;
+
         wp_register_script( 'valcode-appoint', plugins_url( 'assets/js/appoint.js', __FILE__ ), ['jquery'], $this->version, true );
         wp_localize_script( 'valcode-appoint', 'ValcodeAppoint', [
             'ajax' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('valcode_appoint_nonce')
+            'nonce' => wp_create_nonce('valcode_appoint_nonce'),
+            'minAdvanceDays' => $min_advance
         ]);
     }
 
@@ -214,9 +227,6 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         echo '<div class="wrap"><h1>Valcode Appoint</h1><p>Verwalte Services, Mitarbeiter, Termine, Kalender, Verfügbarkeit & Design.</p><p>Frontend: <code>[valcode_appoint]</code></p></div>';
     }
 
-    // ---------- SERVICES / STAFF (same as before, trimmed here for brevity) ----------
-    // (The methods are identical to v0.4.0; kept fully to ensure functionality)
-    
     public function render_services() {
         if ( ! current_user_can('manage_options') ) return;
         global $wpdb;
@@ -295,6 +305,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         else { $data['created_at'] = current_time('mysql'); $wpdb->insert( $table, $data ); }
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-services') ); exit;
     }
+    
     public function handle_delete_service() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_delete_service', '_va' );
@@ -378,6 +389,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
             </div>
         </div><?php
     }
+    
     public function handle_save_staff() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_save_staff', '_va' );
@@ -396,6 +408,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         else { $data['created_at'] = current_time('mysql'); $wpdb->insert( $table, $data ); }
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-staff') ); exit;
     }
+    
     public function handle_delete_staff() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_delete_staff', '_va' );
@@ -403,7 +416,6 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-staff') ); exit;
     }
 
-    // ---------- APPOINTMENTS (List + Create + Edit) ----------
     public function render_appointments() {
         if ( ! current_user_can('manage_options') ) return;
         global $wpdb;
@@ -555,6 +567,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
 
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-appointments&saved=1') ); exit;
     }
+    
     public function handle_delete_appointment() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_delete_appointment', '_va' );
@@ -562,7 +575,6 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-appointments&deleted=1') ); exit;
     }
 
-    // ---------- CALENDAR (FullCalendar) ----------
     public function render_calendar() {
         if ( ! current_user_can('manage_options') ) return; ?>
         <div class="wrap va-wrap">
@@ -636,7 +648,6 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         wp_send_json_success([ 'events' => $events ]);
     }
 
-    // ---------- AVAILABILITY ----------
     public function render_availability() {
         if ( ! current_user_can('manage_options') ) return;
         global $wpdb;
@@ -778,12 +789,14 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         $wpdb->insert( $this->tables['availability'], $data );
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-availability&saved=1') ); exit;
     }
+    
     public function handle_delete_availability() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_delete_availability', '_va' );
         global $wpdb; $wpdb->delete( $this->tables['availability'], [ 'id' => absint($_POST['id'] ?? 0) ] );
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-availability&deleted=1') ); exit;
     }
+    
     public function handle_save_blocker() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_save_blocker', '_va' );
@@ -801,6 +814,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         ] );
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-availability&saved=1') ); exit;
     }
+    
     public function handle_delete_blocker() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_delete_blocker', '_va' );
@@ -808,16 +822,104 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-availability&deleted=1') ); exit;
     }
 
-    
-    // ---------- AVAILABILITY & SLOTS HELPERS ----------
+    public function render_design() {
+        if ( ! current_user_can('manage_options') ) return;
+        $design = get_option('valcode_appoint_design', []);
+        $primary = esc_attr($design['primary_color'] ?? '#0f172a');
+        $accent  = esc_attr($design['accent_color'] ?? '#6366f1');
+        $radius  = esc_attr($design['radius'] ?? '14px');
+        $font    = esc_attr($design['font_family'] ?? 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif');
+        ?>
+        <div class="wrap va-wrap">
+            <h1 class="wp-heading-inline">Design</h1>
+            <hr class="wp-header-end"/>
+            <div class="va-card">
+                <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
+                    <?php wp_nonce_field( 'valcode_save_design', '_va' ); ?>
+                    <input type="hidden" name="action" value="valcode_save_design"/>
+                    <div class="va-field two">
+                        <div><label for="primary_color">Primärfarbe</label><input type="color" id="primary_color" name="primary_color" value="<?php echo $primary; ?>"/></div>
+                        <div><label for="accent_color">Akzentfarbe</label><input type="color" id="accent_color" name="accent_color" value="<?php echo $accent; ?>"/></div>
+                    </div>
+                    <div class="va-field two">
+                        <div><label for="radius">Eckenradius</label><input type="text" id="radius" name="radius" value="<?php echo $radius; ?>" placeholder="z.B. 14px"/></div>
+                        <div><label for="font_family">Schriftfamilie</label><input type="text" id="font_family" name="font_family" value="<?php echo $font; ?>"/></div>
+                    </div>
+                    <div class="va-actions"><button class="button button-primary">Design speichern</button></div>
+                </form>
+                <p class="description">Diese Einstellungen beeinflussen das Frontend-Formular <code>[valcode_appoint]</code>.</p>
+            </div>
+        </div>
+        <?php
+    }
+
+    public function handle_save_design() {
+        if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
+        check_admin_referer( 'valcode_save_design', '_va' );
+        $opt = get_option('valcode_appoint_design', []);
+        $opt['primary_color'] = sanitize_hex_color( $_POST['primary_color'] ?? '#0f172a' );
+        $opt['accent_color']  = sanitize_hex_color( $_POST['accent_color'] ?? '#6366f1' );
+        $opt['radius']        = sanitize_text_field( $_POST['radius'] ?? '14px' );
+        $opt['font_family']   = sanitize_text_field( $_POST['font_family'] ?? 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' );
+        update_option('valcode_appoint_design', $opt);
+        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-design&saved=1') ); exit;
+    }
+
+    public function render_settings() {
+        if ( ! current_user_can('manage_options') ) return;
+        $settings = get_option('valcode_appoint_settings', []);
+        $min_advance = isset($settings['min_advance_days']) ? (int)$settings['min_advance_days'] : 0;
+        ?>
+        <div class="wrap va-wrap">
+            <h1 class="wp-heading-inline">Einstellungen</h1>
+            <hr class="wp-header-end"/>
+            <div class="va-card" style="max-width: 600px;">
+                <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
+                    <?php wp_nonce_field( 'valcode_save_settings', '_va' ); ?>
+                    <input type="hidden" name="action" value="valcode_save_settings"/>
+                    
+                    <div class="va-field">
+                        <label for="min_advance_days">Mindest-Vorlaufzeit für Buchungen (in Tagen)</label>
+                        <input type="number" id="min_advance_days" name="min_advance_days" min="0" max="365" value="<?php echo esc_attr($min_advance); ?>" />
+                        <p class="description">Wie viele Tage im Voraus muss ein Termin mindestens gebucht werden?<br>
+                        <strong>0</strong> = Buchung am gleichen Tag möglich<br>
+                        <strong>1</strong> = Mindestens 1 Tag im Voraus<br>
+                        <strong>2</strong> = Mindestens 2 Tage im Voraus, etc.</p>
+                    </div>
+                    
+                    <div class="va-actions">
+                        <button class="button button-primary">Einstellungen speichern</button>
+                    </div>
+                    
+                    <?php if(isset($_GET['saved'])): ?>
+                        <p class="va-msg ok">✅ Einstellungen gespeichert!</p>
+                    <?php endif; ?>
+                </form>
+            </div>
+        </div>
+        <?php
+    }
+
+    public function handle_save_settings() {
+        if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
+        check_admin_referer( 'valcode_save_settings', '_va' );
+        
+        $settings = get_option('valcode_appoint_settings', []);
+        $settings['min_advance_days'] = max(0, min(365, (int)($_POST['min_advance_days'] ?? 0)));
+        
+        update_option('valcode_appoint_settings', $settings);
+        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-settings&saved=1') ); 
+        exit;
+    }
+
     private function get_service($id){
         global $wpdb;
         return $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$this->tables['services']} WHERE id=%d AND active=1", $id) );
     }
+    
     private function staff_is_available_rule($staff_id, $start_dt, $end_dt){
-        // Check weekday/time window against availability rules
         global $wpdb;
-        $weekday = (int) wp_date('w', strtotime($start_dt)); // 0..6
+        $weekday = (int) wp_date('w', strtotime($start_dt));
         $time_start = wp_date('H:i:s', strtotime($start_dt));
         $time_end   = wp_date('H:i:s', strtotime($end_dt));
         $rows = $wpdb->get_results( $wpdb->prepare("SELECT * FROM {$this->tables['availability']} WHERE staff_id=%d AND active=1 AND weekday=%d", $staff_id, $weekday) );
@@ -828,13 +930,15 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         }
         return false;
     }
+    
     private function conflicts_with_blockers($staff_id, $start_dt, $end_dt){
         global $wpdb;
         $sql = "SELECT id FROM {$this->tables['blockers']} 
-                WHERE staff_id=%d AND ((start_datetime < %s AND end_datetime > %s) OR (start_datetime >= %s AND start_datetime < %s))";
+                WHERE staff_id=%d AND ((starts_at < %s AND ends_at > %s) OR (starts_at >= %s AND starts_at < %s))";
         $row = $wpdb->get_var( $wpdb->prepare($sql, $staff_id, $end_dt, $start_dt, $start_dt, $end_dt) );
         return !empty($row);
     }
+    
     private function conflicts_with_appointments($staff_id, $start_dt, $end_dt){
         global $wpdb;
         $sql = "SELECT id FROM {$this->tables['appointments']}
@@ -844,6 +948,7 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         $row = $wpdb->get_var( $wpdb->prepare($sql, $staff_id, $end_dt, $start_dt, $start_dt, $end_dt) );
         return !empty($row);
     }
+    
     private function is_slot_free($staff_id, $service_id, $start_dt){
         $service = $this->get_service($service_id);
         if(!$service) return false;
@@ -854,8 +959,8 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         if($this->conflicts_with_appointments($staff_id, $start_dt, $end_dt)) return false;
         return true;
     }
+    
     private function generate_time_slots($staff_id, $service_id, $date_str, $slot_len=30){
-        // date_str = 'Y-m-d'
         $service = $this->get_service($service_id);
         if(!$service) return [];
         $dur = max( (int)$service->duration_minutes, $slot_len );
@@ -876,20 +981,37 @@ add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointm
         }
         return $slots;
     }
-// ---------- AJAX HELPERS ----------
     
     public function ajax_get_slots(){
         check_ajax_referer('valcode_appoint_nonce', 'nonce');
         $service_id = absint( $_GET['service_id'] ?? 0 );
         $staff_id   = absint( $_GET['staff_id'] ?? 0 );
-        $date       = sanitize_text_field( $_GET['date'] ?? '' ); // Y-m-d
+        $date       = sanitize_text_field( $_GET['date'] ?? '' );
+        
         if(!$service_id || !$staff_id || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)){
-            wp_send_json_error(['message'=>'Ungültige Parameter.']); return;
+            wp_send_json_error(['message'=>'Ungültige Parameter.']); 
+            return;
         }
+        
         $slots = $this->generate_time_slots($staff_id, $service_id, $date, 30);
-        wp_send_json_success(['slots'=>$slots]);
+        
+        // Get booked appointments for this staff member on this day
+        global $wpdb;
+        $booked = $wpdb->get_col( $wpdb->prepare(
+            "SELECT starts_at FROM {$this->tables['appointments']} 
+            WHERE staff_id = %d 
+            AND DATE(starts_at) = %s 
+            AND status NOT IN ('cancelled', 'canceled')",
+            $staff_id, $date
+        ));
+        
+        wp_send_json_success([
+            'slots' => $slots,
+            'booked' => $booked
+        ]);
     }
-public function ajax_get_workers() {
+
+    public function ajax_get_workers() {
         check_ajax_referer('valcode_appoint_nonce', 'nonce');
         global $wpdb;
         $service_id = isset($_GET['service_id']) ? absint($_GET['service_id']) : 0;
@@ -921,7 +1043,6 @@ public function ajax_get_workers() {
         if ($ts === false) { wp_send_json_error(['message'=>'Ungültiges Datum.']); return; }
         $starts_at = date('Y-m-d H:i:s', $ts);
 
-        
         $service = $this->get_service($service_id);
         if(!$service){ wp_send_json_error(['message'=>'Service nicht gefunden.']); return; }
         $duration = (int)$service->duration_minutes;
@@ -933,7 +1054,6 @@ public function ajax_get_workers() {
             wp_send_json_error(['message'=>'Dieser Slot ist nicht mehr verfügbar. Bitte anderen Zeitpunkt wählen.']); return;
         }
 
-        // Insert & prevent race by re-checking
         $ok = $wpdb->insert( $this->tables['appointments'], [
             'customer_name' => $customer_name,
             'customer_email'=> $customer_email,
@@ -985,68 +1105,9 @@ public function ajax_get_workers() {
             'message'=>'Termin bestätigt. Bestätigung per E-Mail gesendet.',
             'appointment_id' => $appt_id,
             'gcal' => $gcal_link
-        ]); return;
-
-
-        $wpdb->insert( $this->tables['appointments'], [
-            'customer_name' => $customer_name,
-            'customer_email'=> $customer_email,
-            'service_id'    => $service_id,
-            'staff_id'      => $staff_id ?: null,
-            'starts_at'     => $starts_at,
-            'notes'         => $notes,
-            'status'        => 'pending',
-            'created_at'    => current_time('mysql'),
-            'updated_at'    => current_time('mysql'),
-        ] );
-        wp_send_json_success(['message'=>'Termin gespeichert']);
+        ]);
     }
 
-    // ---------- DESIGN ----------
-    public function render_design() {
-        if ( ! current_user_can('manage_options') ) return;
-        $design = get_option('valcode_appoint_design', []);
-        $primary = esc_attr($design['primary_color'] ?? '#0f172a');
-        $accent  = esc_attr($design['accent_color'] ?? '#6366f1');
-        $radius  = esc_attr($design['radius'] ?? '14px');
-        $font    = esc_attr($design['font_family'] ?? 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif');
-        ?>
-        <div class="wrap va-wrap">
-            <h1 class="wp-heading-inline">Design</h1>
-            <hr class="wp-header-end"/>
-            <div class="va-card">
-                <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
-                    <?php wp_nonce_field( 'valcode_save_design', '_va' ); ?>
-                    <input type="hidden" name="action" value="valcode_save_design"/>
-                    <div class="va-field two">
-                        <div><label for="primary_color">Primärfarbe</label><input type="color" id="primary_color" name="primary_color" value="<?php echo $primary; ?>"/></div>
-                        <div><label for="accent_color">Akzentfarbe</label><input type="color" id="accent_color" name="accent_color" value="<?php echo $accent; ?>"/></div>
-                    </div>
-                    <div class="va-field two">
-                        <div><label for="radius">Eckenradius</label><input type="text" id="radius" name="radius" value="<?php echo $radius; ?>" placeholder="z.B. 14px"/></div>
-                        <div><label for="font_family">Schriftfamilie</label><input type="text" id="font_family" name="font_family" value="<?php echo $font; ?>"/></div>
-                    </div>
-                    <div class="va-actions"><button class="button button-primary">Design speichern</button></div>
-                </form>
-                <p class="description">Diese Einstellungen beeinflussen das Frontend-Formular <code>[valcode_appoint]</code>.</p>
-            </div>
-        </div>
-        <?php
-    }
-
-    public function handle_save_design() {
-        if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
-        check_admin_referer( 'valcode_save_design', '_va' );
-        $opt = get_option('valcode_appoint_design', []);
-        $opt['primary_color'] = sanitize_hex_color( $_POST['primary_color'] ?? '#0f172a' );
-        $opt['accent_color']  = sanitize_hex_color( $_POST['accent_color'] ?? '#6366f1' );
-        $opt['radius']        = sanitize_text_field( $_POST['radius'] ?? '14px' );
-        $opt['font_family']   = sanitize_text_field( $_POST['font_family'] ?? 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' );
-        update_option('valcode_appoint_design', $opt);
-        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-design&saved=1') ); exit;
-    }
-
-    // ---------- SHORTCODE FRONTEND (styled + saves) ----------
     public function shortcode_form( $atts ) {
         global $wpdb;
         $services = $wpdb->get_results( "SELECT id, name, duration_minutes, price FROM {$this->tables['services']} WHERE active=1 ORDER BY name" );
@@ -1089,14 +1150,11 @@ public function ajax_get_workers() {
                 </div>
             </div>
 
-            <!-- Step 2: Datum wählen -->
+            <!-- Step 2: Datum wählen - Calendar Widget -->
             <div class="va-step" data-step="2" hidden>
                 <h3>Datum wählen</h3>
                 
-                <div class="va-field">
-                    <label for="va_date">Wunschdatum</label>
-                    <input id="va_date" type="date" required/>
-                </div>
+                <div id="va_calendar"></div>
 
                 <div class="va-actions">
                     <button type="button" id="va_prev_2" class="va-btn va-prev">Zurück</button>
