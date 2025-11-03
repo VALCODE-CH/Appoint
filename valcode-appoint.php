@@ -652,20 +652,52 @@ class Valcode_Appoint {
         if ( ! current_user_can('manage_options') ) return;
         global $wpdb;
         $staff = $wpdb->get_results( "SELECT id, display_name FROM {$this->tables['staff']} WHERE active=1 ORDER BY display_name" );
+
+        // Filter für Mitarbeiter
+        $filter_staff_id = isset($_GET['filter_staff']) ? absint($_GET['filter_staff']) : 0;
+
+        // Abfrage mit Filter
+        $where_rules = $filter_staff_id ? $wpdb->prepare("WHERE av.staff_id = %d", $filter_staff_id) : "";
         $rules = $wpdb->get_results( "
             SELECT av.*, st.display_name FROM {$this->tables['availability']} av
             LEFT JOIN {$this->tables['staff']} st ON st.id=av.staff_id
+            $where_rules
             ORDER BY st.display_name, av.weekday, av.start_time
         " );
+
+        $where_blockers = $filter_staff_id ? $wpdb->prepare("WHERE b.staff_id = %d", $filter_staff_id) : "";
         $blockers = $wpdb->get_results( "
             SELECT b.*, st.display_name FROM {$this->tables['blockers']} b
             LEFT JOIN {$this->tables['staff']} st ON st.id=b.staff_id
+            $where_blockers
             ORDER BY b.starts_at DESC
         " );
         ?>
         <div class="wrap va-wrap">
             <h1 class="wp-heading-inline">Verfügbarkeit</h1>
             <hr class="wp-header-end"/>
+
+            <!-- Filter -->
+            <div class="va-card" style="margin-bottom: 20px;">
+                <form method="get" action="" style="display: flex; align-items: end; gap: 15px;">
+                    <input type="hidden" name="page" value="valcode-appoint-availability"/>
+                    <div class="va-field" style="margin: 0;">
+                        <label for="filter_staff">Nach Mitarbeiter filtern</label>
+                        <select id="filter_staff" name="filter_staff" onchange="this.form.submit()">
+                            <option value="">Alle Mitarbeiter</option>
+                            <?php foreach($staff as $st): ?>
+                                <option value="<?php echo (int)$st->id; ?>" <?php selected($filter_staff_id, (int)$st->id); ?>>
+                                    <?php echo esc_html($st->display_name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php if($filter_staff_id): ?>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=valcode-appoint-availability')); ?>" class="button">Filter zurücksetzen</a>
+                    <?php endif; ?>
+                </form>
+            </div>
+
             <div class="va-grid">
                 <div class="va-card">
                     <h2>Öffnungszeiten-Regel</h2>
@@ -677,7 +709,9 @@ class Valcode_Appoint {
                                 <select id="av_staff" name="staff_id" required>
                                     <option value="">Bitte wählen…</option>
                                     <?php foreach($staff as $st): ?>
-                                        <option value="<?php echo (int)$st->id; ?>"><?php echo esc_html($st->display_name); ?></option>
+                                        <option value="<?php echo (int)$st->id; ?>" <?php selected($filter_staff_id, (int)$st->id); ?>>
+                                            <?php echo esc_html($st->display_name); ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -699,10 +733,13 @@ class Valcode_Appoint {
                     <table class="widefat fixed striped">
                         <thead><tr><th>Mitarbeiter</th><th>Tag</th><th>Start</th><th>Ende</th><th>Aktiv</th><th>Aktion</th></tr></thead>
                         <tbody>
-                        <?php if ($rules): foreach ($rules as $r): ?>
+                        <?php if ($rules): foreach ($rules as $r):
+                            $weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                            $weekday_name = isset($weekdays[(int)$r->weekday]) ? $weekdays[(int)$r->weekday] : $r->weekday;
+                        ?>
                             <tr>
                                 <td><?php echo esc_html($r->display_name); ?></td>
-                                <td><?php echo esc_html($r->weekday); ?></td>
+                                <td><?php echo esc_html($weekday_name); ?></td>
                                 <td><?php echo esc_html($r->start_time); ?></td>
                                 <td><?php echo esc_html($r->end_time); ?></td>
                                 <td><?php echo $r->active ? 'ja' : 'nein'; ?></td>

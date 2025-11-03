@@ -34,7 +34,7 @@
         if(el){ el.disabled = !yes; } 
     }
 
-    // Calendar Widget
+    // Calendar Widget with availability checking
     function CalendarWidget(containerId, onDateSelect){
         this.container = document.getElementById(containerId);
         this.currentMonth = new Date();
@@ -42,9 +42,51 @@
         this.selectedDate = null;
         this.onDateSelect = onDateSelect;
         this.minAdvanceDays = parseInt(ValcodeAppoint.minAdvanceDays || '0', 10);
+        this.availabilityCache = {};
+        this.serviceId = null;
+        this.workerId = null;
         
         this.render();
     }
+    
+    CalendarWidget.prototype.setService = function(serviceId, workerId){
+        this.serviceId = serviceId;
+        this.workerId = workerId;
+        this.availabilityCache = {};
+        this.render();
+    };
+    
+    CalendarWidget.prototype.checkAvailability = function(dateStr, callback){
+        if(this.availabilityCache[dateStr] !== undefined){
+            callback(this.availabilityCache[dateStr]);
+            return;
+        }
+        
+        if(!this.serviceId || !this.workerId){
+            callback(false);
+            return;
+        }
+        
+        var self = this;
+        var params = new URLSearchParams();
+        params.set('action','valcode_get_slots');
+        params.set('nonce', ValcodeAppoint.nonce);
+        params.set('service_id', this.serviceId);
+        params.set('staff_id', this.workerId);
+        params.set('date', dateStr);
+        
+        fetch(ValcodeAppoint.ajax + '?' + params.toString(), { credentials:'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+            var hasSlots = res && res.success && res.data && res.data.slots && res.data.slots.length > 0;
+            self.availabilityCache[dateStr] = hasSlots;
+            callback(hasSlots);
+        })
+        .catch(function(){
+            self.availabilityCache[dateStr] = false;
+            callback(false);
+        });
+    };
     
     CalendarWidget.prototype.render = function(){
         var self = this;
@@ -113,7 +155,7 @@
             }
             
             var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-            html += '<div class="' + classes.join(' ') + '" data-date="' + dateStr + '" data-disabled="' + disabled + '">' + day + '</div>';
+            html += '<div class="' + classes.join(' ') + '" data-date="' + dateStr + '" data-disabled="' + disabled + '" data-checking="true">' + day + '</div>';
         }
         
         // Next month days
@@ -125,6 +167,25 @@
         html += '</div></div>';
         
         this.container.innerHTML = html;
+        
+        // Check availability for each day if service/worker is set
+        if(this.serviceId && this.workerId){
+            this.container.querySelectorAll('.va-calendar-day[data-date][data-checking="true"]').forEach(function(dayEl){
+                var dateStr = dayEl.getAttribute('data-date');
+                var alreadyDisabled = dayEl.getAttribute('data-disabled') === 'true';
+                
+                if(!alreadyDisabled){
+                    self.checkAvailability(dateStr, function(hasSlots){
+                        if(!hasSlots){
+                            dayEl.classList.add('disabled', 'no-availability');
+                            dayEl.setAttribute('data-disabled', 'true');
+                            dayEl.title = 'Keine Termine verfügbar';
+                        }
+                        dayEl.removeAttribute('data-checking');
+                    });
+                }
+            });
+        }
         
         // Event listeners
         this.container.querySelectorAll('[data-action="prev"]').forEach(function(btn){
@@ -227,6 +288,8 @@
                         refreshNext2();
                         loadSlots(dateStr);
                     });
+                    // Set service and worker for availability checking
+                    calendar.setService(service.value, worker.value);
                 }
             });
         }

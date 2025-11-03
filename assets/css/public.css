@@ -17,7 +17,7 @@
 .va-booking-form{ 
   font-family: var(--va-font); 
   padding:18px; 
-  max-width: 720px; 
+  max-width: 1200px; /* Increased from 720px */
   margin: 10px auto; 
 }
 
@@ -157,24 +157,26 @@
   border: 1px solid #bbf7d0;
 }
 
-/* Calendar Widget */
+/* Calendar Widget - Wider */
 .va-calendar-widget{
   background: #fff;
   border-radius: calc(var(--va-radius) - 2px);
-  padding: 20px;
+  padding: 24px; /* Increased padding */
   border: 1px solid var(--va-border);
+  max-width: 1000px; /* Added max-width for wider calendar */
+  margin: 0 auto;
 }
 
 .va-calendar-header{
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .va-calendar-header h4{
   margin: 0;
-  font-size: 18px;
+  font-size: 20px; /* Slightly larger */
   font-weight: 600;
   color: var(--va-primary);
 }
@@ -187,8 +189,8 @@
 .va-calendar-nav button{
   background: #f3f4f6;
   border: none;
-  width: 36px;
-  height: 36px;
+  width: 40px; /* Slightly larger */
+  height: 40px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -205,15 +207,15 @@
 .va-calendar-grid{
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 8px; /* Increased gap */
 }
 
 .va-calendar-day-header{
   text-align: center;
-  font-size: 12px;
+  font-size: 13px; /* Slightly larger */
   font-weight: 600;
   color: #6b7280;
-  padding: 8px 4px;
+  padding: 12px 4px; /* Increased padding */
 }
 
 .va-calendar-day{
@@ -221,21 +223,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px; /* Larger radius */
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px; /* Larger font */
   font-weight: 500;
   transition: all 0.2s ease;
   border: 2px solid transparent;
+  min-height: 50px; /* Minimum height for better clickability */
 }
 
-.va-calendar-day:hover:not(.disabled):not(.other-month){
+.va-calendar-day:hover:not(.disabled):not(.other-month):not(.checking){
   background: #f3f4f6;
 }
 
-.va-calendar-day.disabled{
+.va-calendar-day.disabled,
+.va-calendar-day.no-slots{
   color: #d1d5db;
   cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.va-calendar-day.checking{
+  color: #9ca3af;
+  cursor: wait;
+  position: relative;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .va-calendar-day.other-month{
@@ -253,16 +270,16 @@
   border-color: var(--va-accent);
 }
 
-/* Time Slots */
+/* Time Slots - Wider grid */
 .va-slots-grid{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Wider slots */
+  gap: 14px; /* Increased gap */
   margin-top: 20px;
 }
 
 .va-slot-btn{
-  padding: 16px 12px;
+  padding: 18px 14px; /* Increased padding */
   background: #fff;
   border: 2px solid #e5e7eb;
   border-radius: calc(var(--va-radius) - 2px);
@@ -351,6 +368,38 @@
   max-width: 300px;
 }
 
+/* Responsive adjustments */
+@media (max-width: 1024px){
+  .va-booking-form{
+    max-width: 900px;
+  }
+  
+  .va-calendar-widget{
+    max-width: 800px;
+  }
+}
+
+@media (max-width: 768px){
+  .va-booking-form{
+    max-width: 100%;
+    padding: 16px;
+  }
+  
+  .va-calendar-widget{
+    max-width: 100%;
+    padding: 16px;
+  }
+  
+  .va-calendar-grid{
+    gap: 4px;
+  }
+  
+  .va-calendar-day{
+    font-size: 14px;
+    min-height: 40px;
+  }
+}
+
 @media (max-width: 640px){
   .va-grid{
     grid-template-columns: 1fr;
@@ -370,5 +419,11 @@
   
   .va-slots-grid{
     grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  
+  .va-slot-btn{
+    padding: 14px 10px;
+    font-size: 14px;
   }
 }
