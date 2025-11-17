@@ -93,15 +93,17 @@
         var year = this.currentMonth.getFullYear();
         var month = this.currentMonth.getMonth();
         
-        var monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 
+        var monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
                          'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-        var dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-        
+        var dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
         var firstDay = new Date(year, month, 1);
         var lastDay = new Date(year, month + 1, 0);
         var prevLastDay = new Date(year, month, 0);
-        
+
+        // Adjust startDay so Monday = 0, Sunday = 6
         var startDay = firstDay.getDay();
+        startDay = (startDay === 0) ? 6 : startDay - 1;
         var daysInMonth = lastDay.getDate();
         var prevDaysInMonth = prevLastDay.getDate();
         
@@ -235,6 +237,88 @@
         var prev4 = q('va_prev_4');
 
         var calendar = null;
+        var currentCustomer = null;
+
+        // Check customer login status on load
+        function checkCustomerStatus(){
+            fetch(ValcodeAppoint.ajax + '?action=valcode_customer_check&nonce=' + encodeURIComponent(ValcodeAppoint.nonce), {
+                credentials: 'same-origin'
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res && res.success && res.data.logged_in){
+                    currentCustomer = res.data;
+                    showLoggedInState();
+                } else {
+                    showLoggedOutState();
+                }
+            })
+            .catch(function(){
+                showLoggedOutState();
+            });
+        }
+
+        function showLoggedInState(){
+            var loggedInDiv = q('va_customer_logged_in');
+            var authContainer = q('va_auth_container');
+            var nameEl = q('va_logged_customer_name');
+            var emailEl = q('va_logged_customer_email');
+            var customerIdEl = q('va_customer_id');
+
+            if(loggedInDiv && authContainer && currentCustomer){
+                if(nameEl) nameEl.textContent = currentCustomer.customer_name;
+                if(emailEl) emailEl.textContent = currentCustomer.customer_email;
+                if(customerIdEl) customerIdEl.value = currentCustomer.customer_id;
+                loggedInDiv.hidden = false;
+                authContainer.hidden = true;
+            }
+        }
+
+        function showLoggedOutState(){
+            var loggedInDiv = q('va_customer_logged_in');
+            var authContainer = q('va_auth_container');
+
+            if(loggedInDiv && authContainer){
+                loggedInDiv.hidden = true;
+                authContainer.hidden = false;
+            }
+            currentCustomer = null;
+        }
+
+        // Logout handler
+        var logoutBtn = q('va_logout_btn');
+        if(logoutBtn){
+            logoutBtn.addEventListener('click', function(){
+                this.disabled = true;
+                this.textContent = 'Wird abgemeldet...';
+
+                var fd = new FormData();
+                fd.append('action', 'valcode_customer_logout');
+                fd.append('nonce', ValcodeAppoint.nonce);
+
+                fetch(ValcodeAppoint.ajax, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: fd
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res && res.success){
+                        currentCustomer = null;
+                        showLoggedOutState();
+                        logoutBtn.disabled = false;
+                        logoutBtn.textContent = 'Abmelden';
+                    }
+                })
+                .catch(function(){
+                    logoutBtn.disabled = false;
+                    logoutBtn.textContent = 'Abmelden';
+                });
+            });
+        }
+
+        // Check status on page load
+        checkCustomerStatus();
 
         function refreshNext1(){
             enable(next1, !!service.value && !!worker.value);
@@ -369,6 +453,23 @@
         if(next3){ next3.addEventListener('click', function(){ goto(4); }); }
         if(prev4){ prev4.addEventListener('click', function(){ goto(3); }); }
 
+        // Booking mode selection
+        var bookingModeRadios = document.querySelectorAll('input[name="booking_mode"]');
+        var guestForm = q('va_guest_form');
+        var loginForm = q('va_login_form');
+        var registerForm = q('va_register_form');
+
+        if(bookingModeRadios.length > 0){
+            bookingModeRadios.forEach(function(radio){
+                radio.addEventListener('change', function(){
+                    var mode = this.value;
+                    if(guestForm) guestForm.hidden = mode !== 'guest';
+                    if(loginForm) loginForm.hidden = mode !== 'login';
+                    if(registerForm) registerForm.hidden = mode !== 'register';
+                });
+            });
+        }
+
         // Form submit
         if(form){
             form.addEventListener('submit', function(e){
@@ -376,52 +477,258 @@
                 msg('', false);
 
                 var submitBtn = form.querySelector('button[type="submit"]');
-                if(submitBtn){ submitBtn.disabled = true; }
+                if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Bitte warten...'; }
 
-                var fd = new FormData(form);
-                fd.append('action','valcode_create_appointment');
+                // Determine booking mode
+                var bookingMode = 'guest';
+                var modeInput = q('va_booking_mode');
+                if(modeInput){
+                    bookingMode = modeInput.value;
+                } else {
+                    var selectedMode = document.querySelector('input[name="booking_mode"]:checked');
+                    if(selectedMode) bookingMode = selectedMode.value;
+                }
+
+                // Handle login first
+                if(bookingMode === 'login'){
+                    var loginEmail = q('va_login_email');
+                    var loginPassword = q('va_login_password');
+
+                    if(!loginEmail || !loginPassword || !loginEmail.value || !loginPassword.value){
+                        msg('Bitte E-Mail und Passwort eingeben.', false);
+                        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                        return;
+                    }
+
+                    var loginData = new FormData();
+                    loginData.append('action', 'valcode_customer_login');
+                    loginData.append('nonce', ValcodeAppoint.nonce);
+                    loginData.append('email', loginEmail.value);
+                    loginData.append('password', loginPassword.value);
+
+                    fetch(ValcodeAppoint.ajax, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: loginData
+                    })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if(res && res.success){
+                            // Login successful, update state and create appointment
+                            currentCustomer = res.data;
+                            var customerIdEl = q('va_customer_id');
+                            if(customerIdEl) customerIdEl.value = res.data.customer_id;
+                            createAppointment(submitBtn, 'logged_in', res.data.customer_id);
+                        } else {
+                            msg(res && res.data && res.data.message ? res.data.message : 'Anmeldung fehlgeschlagen.', false);
+                            if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                        }
+                    })
+                    .catch(function(){
+                        msg('Fehler bei der Anmeldung.', false);
+                        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                    });
+                    return;
+                }
+
+                // Handle registration first
+                if(bookingMode === 'register'){
+                    var regFirstname = q('va_reg_firstname');
+                    var regLastname = q('va_reg_lastname');
+                    var regEmail = q('va_reg_email');
+                    var regPhone = q('va_reg_phone');
+                    var regPassword = q('va_reg_password');
+                    var regNotes = q('va_reg_notes');
+
+                    if(!regFirstname || !regLastname || !regEmail || !regPassword ||
+                       !regFirstname.value || !regLastname.value || !regEmail.value || !regPassword.value){
+                        msg('Bitte alle Pflichtfelder ausfüllen.', false);
+                        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                        return;
+                    }
+
+                    var registerData = new FormData();
+                    registerData.append('action', 'valcode_customer_register');
+                    registerData.append('nonce', ValcodeAppoint.nonce);
+                    registerData.append('first_name', regFirstname.value);
+                    registerData.append('last_name', regLastname.value);
+                    registerData.append('email', regEmail.value);
+                    registerData.append('phone', regPhone ? regPhone.value : '');
+                    registerData.append('password', regPassword.value);
+                    registerData.append('notes', regNotes ? regNotes.value : '');
+
+                    fetch(ValcodeAppoint.ajax, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: registerData
+                    })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if(res && res.success){
+                            // Registration successful, update state and create appointment
+                            currentCustomer = res.data;
+                            var customerIdEl = q('va_customer_id');
+                            if(customerIdEl) customerIdEl.value = res.data.customer_id;
+                            createAppointment(submitBtn, 'logged_in', res.data.customer_id);
+                        } else {
+                            msg(res && res.data && res.data.message ? res.data.message : 'Registrierung fehlgeschlagen.', false);
+                            if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                        }
+                    })
+                    .catch(function(){
+                        msg('Fehler bei der Registrierung.', false);
+                        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                    });
+                    return;
+                }
+
+                // Handle guest or already logged in
+                var customerId = q('va_customer_id') ? q('va_customer_id').value : null;
+                createAppointment(submitBtn, bookingMode, customerId);
+            });
+        }
+
+        function createAppointment(submitBtn, mode, userId){
+            var fd = new FormData();
+            fd.append('action','valcode_create_appointment');
+            fd.append('nonce', ValcodeAppoint.nonce);
+            fd.append('service_id', service.value);
+            fd.append('staff_id', worker.value);
+            fd.append('starts_at', startHidden.value);
+
+            // Get customer info based on mode
+            if(mode === 'logged_in' && userId){
+                fd.append('user_id', userId);
+                fd.append('customer_name', 'User ID: ' + userId); // Will be populated from WP user
+                fd.append('customer_email', ''); // Will be populated from WP user
+            } else {
+                // Guest mode
+                var guestName = q('va_guest_name');
+                var guestEmail = q('va_guest_email');
+                if(guestName && guestEmail){
+                    fd.append('customer_name', guestName.value);
+                    fd.append('customer_email', guestEmail.value);
+                }
+            }
+
+            var notesField = q('va_notes');
+            if(notesField) fd.append('notes', notesField.value);
+
+            fetch(ValcodeAppoint.ajax, {
+                method:'POST',
+                credentials:'same-origin',
+                body: fd
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if(res && res.success){
+                    goto(5);
+
+                    // Display success message with details
+                    var successMsg = q('va_success_msg');
+                    if(successMsg){
+                        var serviceName = service.options[service.selectedIndex].text;
+                        var workerName = worker.options[worker.selectedIndex].text;
+                        var dateTime = selectedDate + ' um ' + selectedSlot.split(' ')[1].substring(0,5);
+
+                        successMsg.innerHTML = '<strong>Ihre Buchung wurde bestätigt!</strong><br><br>' +
+                            'Service: ' + serviceName + '<br>' +
+                            'Mitarbeiter: ' + workerName + '<br>' +
+                            'Termin: ' + dateTime + '<br><br>' +
+                            'Sie erhalten in Kürze eine Bestätigungs-E-Mail.';
+                    }
+
+                    // Reset form
+                    if(form) form.reset();
+                    selectedSlot = null;
+                    selectedDate = null;
+                    calendar = null;
+                    enable(worker, false);
+                    setOptions(worker, [], 'Bitte zuerst Service wählen…');
+                    if(slotsContainer) slotsContainer.innerHTML = '';
+                } else {
+                    msg(res && res.data && res.data.message ? res.data.message : 'Fehler beim Speichern.', false);
+                    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+                }
+            })
+            .catch(function(){
+                msg('Fehler beim Absenden.', false);
+                if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Termin verbindlich buchen'; }
+            });
+        }
+
+        // Password Reset functionality
+        var forgotLink = q('va_forgot_password_link');
+        var backToLoginLink = q('va_back_to_login');
+        var forgotForm = q('va_forgot_form');
+        var resetRequestBtn = q('va_reset_request_btn');
+        var resetMsg = q('va_reset_msg');
+
+        if(forgotLink){
+            forgotLink.addEventListener('click', function(e){
+                e.preventDefault();
+                if(loginForm) loginForm.hidden = true;
+                if(forgotForm) forgotForm.hidden = false;
+            });
+        }
+
+        if(backToLoginLink){
+            backToLoginLink.addEventListener('click', function(e){
+                e.preventDefault();
+                if(forgotForm) forgotForm.hidden = true;
+                if(loginForm) loginForm.hidden = false;
+                if(resetMsg) resetMsg.textContent = '';
+            });
+        }
+
+        if(resetRequestBtn){
+            resetRequestBtn.addEventListener('click', function(){
+                var resetEmail = q('va_reset_email');
+                if(!resetEmail || !resetEmail.value){
+                    if(resetMsg){
+                        resetMsg.textContent = 'Bitte E-Mail-Adresse eingeben.';
+                        resetMsg.className = 'va-msg err';
+                    }
+                    return;
+                }
+
+                resetRequestBtn.disabled = true;
+                resetRequestBtn.textContent = 'Sende...';
+
+                var fd = new FormData();
+                fd.append('action', 'valcode_customer_reset_request');
                 fd.append('nonce', ValcodeAppoint.nonce);
+                fd.append('email', resetEmail.value);
 
-                fetch(ValcodeAppoint.ajax, { 
-                    method:'POST', 
-                    credentials:'same-origin', 
-                    body: fd 
+                fetch(ValcodeAppoint.ajax, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: fd
                 })
                 .then(function(r){ return r.json(); })
                 .then(function(res){
                     if(res && res.success){
-                        goto(5);
-                        
-                        // Display success message with details
-                        var successMsg = q('va_success_msg');
-                        if(successMsg){
-                            var serviceName = service.options[service.selectedIndex].text;
-                            var workerName = worker.options[worker.selectedIndex].text;
-                            var dateTime = selectedDate + ' um ' + selectedSlot.split(' ')[1].substring(0,5);
-                            
-                            successMsg.innerHTML = '<strong>Ihre Buchung wurde bestätigt!</strong><br><br>' +
-                                'Service: ' + serviceName + '<br>' +
-                                'Mitarbeiter: ' + workerName + '<br>' +
-                                'Termin: ' + dateTime + '<br><br>' +
-                                'Sie erhalten in Kürze eine Bestätigungs-E-Mail.';
+                        if(resetMsg){
+                            resetMsg.textContent = res.data.message || 'Reset-Link wurde gesendet.';
+                            resetMsg.className = 'va-msg ok';
                         }
-
-                        // Reset form
-                        form.reset();
-                        selectedSlot = null;
-                        selectedDate = null;
-                        calendar = null;
-                        enable(worker, false);
-                        setOptions(worker, [], 'Bitte zuerst Service wählen…');
-                        slotsContainer.innerHTML = '';
+                        if(resetEmail) resetEmail.value = '';
                     } else {
-                        msg(res && res.data && res.data.message ? res.data.message : 'Fehler beim Speichern.', false);
-                        if(submitBtn){ submitBtn.disabled = false; }
+                        if(resetMsg){
+                            resetMsg.textContent = res && res.data && res.data.message ? res.data.message : 'Fehler beim Senden.';
+                            resetMsg.className = 'va-msg err';
+                        }
                     }
+                    resetRequestBtn.disabled = false;
+                    resetRequestBtn.textContent = 'Reset-Link senden';
                 })
                 .catch(function(){
-                    msg('Fehler beim Absenden.', false);
-                    if(submitBtn){ submitBtn.disabled = false; }
+                    if(resetMsg){
+                        resetMsg.textContent = 'Fehler beim Senden.';
+                        resetMsg.className = 'va-msg err';
+                    }
+                    resetRequestBtn.disabled = false;
+                    resetRequestBtn.textContent = 'Reset-Link senden';
                 });
             });
         }

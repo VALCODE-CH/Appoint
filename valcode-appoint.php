@@ -29,6 +29,7 @@ class Valcode_Appoint {
             'appointments' => "{$prefix}valcode_appointments",
             'availability' => "{$prefix}valcode_availability",
             'blockers'     => "{$prefix}valcode_blockers",
+            'customers'    => "{$prefix}valcode_customers",
         ];
 
         register_activation_hook( __FILE__, [ $this, 'activate' ] );
@@ -44,6 +45,10 @@ class Valcode_Appoint {
         add_action( 'admin_post_valcode_save_appointment', [ $this, 'handle_save_appointment' ] );
         add_action( 'admin_post_valcode_delete_appointment', [ $this, 'handle_delete_appointment' ] );
 
+        add_action( 'admin_post_valcode_save_customer', [ $this, 'handle_save_customer' ] );
+        add_action( 'admin_post_valcode_delete_customer', [ $this, 'handle_delete_customer' ] );
+        add_action( 'admin_post_valcode_import_customers', [ $this, 'handle_import_customers' ] );
+
         add_action( 'admin_post_valcode_save_design', [ $this, 'handle_save_design' ] );
         add_action( 'admin_post_valcode_save_settings', [ $this, 'handle_save_settings' ] );
 
@@ -53,16 +58,30 @@ class Valcode_Appoint {
         add_action( 'admin_post_valcode_delete_blocker', [ $this, 'handle_delete_blocker' ] );
 
         add_shortcode( 'valcode_appoint', [ $this, 'shortcode_form' ] );
+        add_shortcode( 'valcode_password_reset', [ $this, 'shortcode_password_reset' ] );
 
         // AJAX
         add_action( 'wp_ajax_valcode_get_workers', [ $this, 'ajax_get_workers' ] );
         add_action( 'wp_ajax_nopriv_valcode_get_workers', [ $this, 'ajax_get_workers' ] );
-        
+
         add_action( 'wp_ajax_valcode_get_slots', [ $this, 'ajax_get_slots' ] );
         add_action( 'wp_ajax_nopriv_valcode_get_slots', [ $this, 'ajax_get_slots' ] );
         add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_nopriv_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_valcode_get_events', [ $this, 'ajax_get_events' ] );
+
+        add_action( 'wp_ajax_valcode_customer_login', [ $this, 'ajax_customer_login' ] );
+        add_action( 'wp_ajax_nopriv_valcode_customer_login', [ $this, 'ajax_customer_login' ] );
+        add_action( 'wp_ajax_valcode_customer_register', [ $this, 'ajax_customer_register' ] );
+        add_action( 'wp_ajax_nopriv_valcode_customer_register', [ $this, 'ajax_customer_register' ] );
+        add_action( 'wp_ajax_valcode_customer_logout', [ $this, 'ajax_customer_logout' ] );
+        add_action( 'wp_ajax_nopriv_valcode_customer_logout', [ $this, 'ajax_customer_logout' ] );
+        add_action( 'wp_ajax_valcode_customer_check', [ $this, 'ajax_customer_check' ] );
+        add_action( 'wp_ajax_nopriv_valcode_customer_check', [ $this, 'ajax_customer_check' ] );
+        add_action( 'wp_ajax_valcode_customer_reset_request', [ $this, 'ajax_customer_reset_request' ] );
+        add_action( 'wp_ajax_nopriv_valcode_customer_reset_request', [ $this, 'ajax_customer_reset_request' ] );
+        add_action( 'wp_ajax_valcode_customer_reset_password', [ $this, 'ajax_customer_reset_password' ] );
+        add_action( 'wp_ajax_nopriv_valcode_customer_reset_password', [ $this, 'ajax_customer_reset_password' ] );
 
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_public' ] );
@@ -141,17 +160,41 @@ class Valcode_Appoint {
             KEY starts_at (starts_at)
         ) $charset_collate;";
 
+        $sql_customers = "CREATE TABLE {$this->tables['customers']} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NULL,
+            first_name VARCHAR(191) NOT NULL,
+            last_name VARCHAR(191) NOT NULL,
+            email VARCHAR(191) NOT NULL,
+            phone VARCHAR(64) NULL,
+            password_hash VARCHAR(255) NULL,
+            notes TEXT NULL,
+            is_guest BOOLEAN DEFAULT 0,
+            reset_token VARCHAR(64) NULL,
+            reset_expires DATETIME NULL,
+            last_login DATETIME NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY email (email),
+            KEY user_id (user_id),
+            KEY reset_token (reset_token)
+        ) $charset_collate;";
+
         dbDelta( $sql_services );
         dbDelta( $sql_staff );
         dbDelta( $sql_appts );
         dbDelta( $sql_av );
         dbDelta( $sql_block );
+        dbDelta( $sql_customers );
 
         // Default design options
         if ( false === get_option('valcode_appoint_design') ) {
             add_option('valcode_appoint_design', [
                 'primary_color' => '#0f172a',
                 'accent_color'  => '#6366f1',
+                'accent_gradient_start' => '#667eea',
+                'accent_gradient_end' => '#764ba2',
                 'radius'        => '14px',
                 'font_family'   => 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
             ]);
@@ -178,6 +221,7 @@ class Valcode_Appoint {
 
         add_submenu_page('valcode-appoint', __('Services','valcode-appoint'), __('Services','valcode-appoint'), 'manage_options', 'valcode-appoint-services', [ $this, 'render_services' ]);
         add_submenu_page('valcode-appoint', __('Mitarbeiter','valcode-appoint'), __('Mitarbeiter','valcode-appoint'), 'manage_options', 'valcode-appoint-staff', [ $this, 'render_staff' ]);
+        add_submenu_page('valcode-appoint', __('Kunden','valcode-appoint'), __('Kunden','valcode-appoint'), 'manage_options', 'valcode-appoint-customers', [ $this, 'render_customers' ]);
         add_submenu_page('valcode-appoint', __('Termine','valcode-appoint'), __('Termine','valcode-appoint'), 'manage_options', 'valcode-appoint-appointments', [ $this, 'render_appointments' ]);
         add_submenu_page('valcode-appoint', __('Kalender','valcode-appoint'), __('Kalender','valcode-appoint'), 'manage_options', 'valcode-appoint-calendar', [ $this, 'render_calendar' ]);
         add_submenu_page('valcode-appoint', __('Verfügbarkeit','valcode-appoint'), __('Verfügbarkeit','valcode-appoint'), 'manage_options', 'valcode-appoint-availability', [ $this, 'render_availability' ]);
@@ -205,11 +249,13 @@ class Valcode_Appoint {
         $design = get_option('valcode_appoint_design', []);
         $primary = isset($design['primary_color']) ? $design['primary_color'] : '#0f172a';
         $accent  = isset($design['accent_color'])  ? $design['accent_color']  : '#6366f1';
+        $gradient_start = isset($design['accent_gradient_start']) ? $design['accent_gradient_start'] : '#667eea';
+        $gradient_end = isset($design['accent_gradient_end']) ? $design['accent_gradient_end'] : '#764ba2';
         $radius  = isset($design['radius'])        ? $design['radius']        : '14px';
         $font    = isset($design['font_family'])   ? $design['font_family']   : 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
 
         wp_register_style( 'valcode-appoint-public', plugins_url( 'assets/css/public.css', __FILE__ ), [], $this->version );
-        wp_add_inline_style( 'valcode-appoint-public', ":root{--va-primary: {$primary}; --va-accent: {$accent}; --va-radius: {$radius}; --va-font: {$font};}" );
+        wp_add_inline_style( 'valcode-appoint-public', ":root{--va-primary: {$primary}; --va-accent: {$accent}; --va-gradient-start: {$gradient_start}; --va-gradient-end: {$gradient_end}; --va-radius: {$radius}; --va-font: {$font};}" );
         wp_enqueue_style( 'valcode-appoint-public' );
 
         $settings = get_option('valcode_appoint_settings', []);
@@ -416,12 +462,199 @@ class Valcode_Appoint {
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-staff') ); exit;
     }
 
+    public function render_customers() {
+        if ( ! current_user_can('manage_options') ) return;
+        global $wpdb;
+        $table = $this->tables['customers'];
+
+        $customers = $wpdb->get_results( "SELECT * FROM $table ORDER BY created_at DESC" );
+        $edit = null;
+        if ( isset($_GET['edit']) ) {
+            $edit_id = absint($_GET['edit']);
+            $edit = $wpdb->get_row( $wpdb->prepare("SELECT * FROM $table WHERE id=%d", $edit_id) );
+        } ?>
+        <div class="wrap va-wrap">
+            <h1 class="wp-heading-inline">Kunden</h1>
+            <hr class="wp-header-end"/>
+
+            <?php if(isset($_GET['imported'])): ?>
+                <div class="notice notice-success is-dismissible"><p>✅ <?php echo absint($_GET['imported']); ?> Kunden erfolgreich importiert!</p></div>
+            <?php endif; ?>
+
+            <div class="va-grid">
+                <div class="va-card">
+                    <h2><?php echo $edit ? 'Kunde bearbeiten' : 'Neuen Kunden anlegen'; ?></h2>
+                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
+                        <?php wp_nonce_field( 'valcode_save_customer', '_va' ); ?>
+                        <input type="hidden" name="action" value="valcode_save_customer"/>
+                        <?php if ($edit): ?><input type="hidden" name="id" value="<?php echo (int)$edit->id; ?>"/><?php endif; ?>
+
+                        <div class="va-field two">
+                            <div><label for="first_name">Vorname *</label><input name="first_name" id="first_name" type="text" required value="<?php echo esc_attr($edit->first_name ?? ''); ?>"/></div>
+                            <div><label for="last_name">Nachname *</label><input name="last_name" id="last_name" type="text" required value="<?php echo esc_attr($edit->last_name ?? ''); ?>"/></div>
+                        </div>
+                        <div class="va-field two">
+                            <div><label for="email">E-Mail *</label><input name="email" id="email" type="email" required value="<?php echo esc_attr($edit->email ?? ''); ?>"/></div>
+                            <div><label for="phone">Telefon</label><input name="phone" id="phone" type="text" value="<?php echo esc_attr($edit->phone ?? ''); ?>"/></div>
+                        </div>
+                        <div class="va-field">
+                            <label for="notes">Notizen</label>
+                            <textarea name="notes" id="notes" rows="3"><?php echo esc_textarea($edit->notes ?? ''); ?></textarea>
+                        </div>
+                        <div class="va-actions"><button class="button button-primary" type="submit"><?php echo $edit ? 'Speichern' : 'Anlegen'; ?></button></div>
+                    </form>
+
+                    <hr style="margin: 30px 0;"/>
+
+                    <h2>Kunden importieren (CSV)</h2>
+                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" enctype="multipart/form-data" class="va-form">
+                        <?php wp_nonce_field( 'valcode_import_customers', '_va' ); ?>
+                        <input type="hidden" name="action" value="valcode_import_customers"/>
+                        <div class="va-field">
+                            <label for="csv_file">CSV-Datei auswählen</label>
+                            <input type="file" name="csv_file" id="csv_file" accept=".csv,.txt" required/>
+                            <p class="description">Format: Vorname, Nachname, E-Mail, Telefon, Notizen (Kopfzeile optional)</p>
+                        </div>
+                        <div class="va-actions"><button class="button" type="submit">Importieren</button></div>
+                    </form>
+                </div>
+
+                <div class="va-card">
+                    <h2>Kundenliste (<?php echo count($customers); ?>)</h2>
+                    <table class="widefat fixed striped">
+                        <thead><tr><th>ID</th><th>Name</th><th>E-Mail</th><th>Telefon</th><th>Typ</th><th>Aktionen</th></tr></thead>
+                        <tbody>
+                        <?php if ( $customers ) : foreach ( $customers as $c ) : ?>
+                            <tr>
+                                <td><?php echo (int)$c->id; ?></td>
+                                <td><?php echo esc_html($c->first_name . ' ' . $c->last_name); ?></td>
+                                <td><?php echo esc_html($c->email); ?></td>
+                                <td><?php echo esc_html($c->phone); ?></td>
+                                <td>
+                                    <?php if (!empty($c->is_guest)): ?>
+                                        <span style="display:inline-block;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600;">Gast</span>
+                                    <?php else: ?>
+                                        <span style="display:inline-block;background:#dbeafe;color:#1e40af;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600;">Registriert</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="va-actions-inline">
+                                    <a class="button button-small" href="<?php echo esc_url( admin_url('admin.php?page=valcode-appoint-customers&edit='.(int)$c->id) ); ?>">Bearbeiten</a>
+                                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" onsubmit="return confirm('Kunde wirklich löschen?');" style="display:inline">
+                                        <?php wp_nonce_field( 'valcode_delete_customer', '_va' ); ?>
+                                        <input type="hidden" name="action" value="valcode_delete_customer"/>
+                                        <input type="hidden" name="id" value="<?php echo (int)$c->id; ?>"/>
+                                        <button class="button button-small button-link-delete">Löschen</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; else: ?>
+                            <tr><td colspan="6">Noch keine Kunden vorhanden.</td></tr>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div><?php
+    }
+
+    public function handle_save_customer() {
+        if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
+        check_admin_referer( 'valcode_save_customer', '_va' );
+        global $wpdb; $table = $this->tables['customers'];
+        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+        $data = [
+            'first_name' => sanitize_text_field( $_POST['first_name'] ?? '' ),
+            'last_name' => sanitize_text_field( $_POST['last_name'] ?? '' ),
+            'email' => sanitize_email( $_POST['email'] ?? '' ),
+            'phone' => sanitize_text_field( $_POST['phone'] ?? '' ),
+            'notes' => sanitize_textarea_field( $_POST['notes'] ?? '' ),
+            'updated_at' => current_time('mysql')
+        ];
+        if ( $id ) {
+            $wpdb->update( $table, $data, [ 'id' => $id ] );
+        } else {
+            $data['created_at'] = current_time('mysql');
+            $data['is_guest'] = 0; // Manually created customers are not guests
+            $wpdb->insert( $table, $data );
+        }
+        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-customers') ); exit;
+    }
+
+    public function handle_delete_customer() {
+        if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
+        check_admin_referer( 'valcode_delete_customer', '_va' );
+        global $wpdb; $wpdb->delete( $this->tables['customers'], [ 'id' => absint($_POST['id'] ?? 0) ] );
+        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-customers') ); exit;
+    }
+
+    public function handle_import_customers() {
+        if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
+        check_admin_referer( 'valcode_import_customers', '_va' );
+
+        if ( empty($_FILES['csv_file']['tmp_name']) ) {
+            wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-customers&error=nofile') ); exit;
+        }
+
+        $file = $_FILES['csv_file']['tmp_name'];
+        $handle = fopen($file, 'r');
+        if ( ! $handle ) {
+            wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-customers&error=read') ); exit;
+        }
+
+        global $wpdb;
+        $table = $this->tables['customers'];
+        $imported = 0;
+        $first_row = true;
+
+        while ( ($data = fgetcsv($handle)) !== FALSE ) {
+            // Skip header row if it looks like a header
+            if ( $first_row && count($data) >= 3 ) {
+                $first_cell = strtolower(trim($data[0]));
+                if ( in_array($first_cell, ['vorname', 'firstname', 'first_name', 'name']) ) {
+                    $first_row = false;
+                    continue;
+                }
+                $first_row = false;
+            }
+
+            if ( count($data) < 3 ) continue; // Need at least first name, last name, email
+
+            $first_name = sanitize_text_field( trim($data[0]) );
+            $last_name = sanitize_text_field( trim($data[1]) );
+            $email = sanitize_email( trim($data[2]) );
+            $phone = isset($data[3]) ? sanitize_text_field( trim($data[3]) ) : '';
+            $notes = isset($data[4]) ? sanitize_textarea_field( trim($data[4]) ) : '';
+
+            if ( ! $first_name || ! $last_name || ! $email ) continue;
+
+            // Check if email already exists
+            $exists = $wpdb->get_var( $wpdb->prepare("SELECT id FROM $table WHERE email=%s", $email) );
+            if ( $exists ) continue; // Skip duplicates
+
+            $wpdb->insert( $table, [
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $email,
+                'phone' => $phone,
+                'notes' => $notes,
+                'is_guest' => 0,
+                'created_at' => current_time('mysql')
+            ]);
+
+            if ( $wpdb->insert_id ) $imported++;
+        }
+
+        fclose($handle);
+        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-customers&imported='.$imported) ); exit;
+    }
+
     public function render_appointments() {
         if ( ! current_user_can('manage_options') ) return;
         global $wpdb;
 
         $services = $wpdb->get_results( "SELECT id, name FROM {$this->tables['services']} WHERE active=1 ORDER BY name" );
         $staff    = $wpdb->get_results( "SELECT id, display_name FROM {$this->tables['staff']} WHERE active=1 ORDER BY display_name" );
+        $customers = $wpdb->get_results( "SELECT id, first_name, last_name, email FROM {$this->tables['customers']} ORDER BY first_name, last_name" );
 
         $edit = null;
         if ( isset($_GET['edit']) ) {
@@ -450,10 +683,24 @@ class Valcode_Appoint {
                         <input type="hidden" name="action" value="valcode_save_appointment"/>
                         <?php if ($edit): ?><input type="hidden" name="id" value="<?php echo (int)$edit->id; ?>"/><?php endif; ?>
 
-                        <div class="va-field"><label for="customer_name">Kundenname</label><input name="customer_name" id="customer_name" type="text" required value="<?php echo esc_attr($edit->customer_name ?? ''); ?>"/></div>
+                        <div class="va-field">
+                            <label for="customer_select">Kunde auswählen (optional)</label>
+                            <select name="customer_select" id="customer_select" style="margin-bottom: 10px;">
+                                <option value="">-- Manuell eingeben oder Kunde wählen --</option>
+                                <?php foreach ($customers as $cust): ?>
+                                    <option value="<?php echo (int)$cust->id; ?>"
+                                            data-name="<?php echo esc_attr($cust->first_name . ' ' . $cust->last_name); ?>"
+                                            data-email="<?php echo esc_attr($cust->email); ?>">
+                                        <?php echo esc_html($cust->first_name . ' ' . $cust->last_name . ' (' . $cust->email . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="va-field"><label for="customer_name">Kundenname *</label><input name="customer_name" id="customer_name" type="text" required value="<?php echo esc_attr($edit->customer_name ?? ''); ?>"/></div>
                         <div class="va-field two">
                             <div><label for="customer_email">E-Mail</label><input name="customer_email" id="customer_email" type="email" value="<?php echo esc_attr($edit->customer_email ?? ''); ?>"/></div>
-                            <div><label for="starts_at">Start</label><input name="starts_at" id="starts_at" type="datetime-local" required value="<?php echo $edit ? esc_attr( date('Y-m-d\TH:i', strtotime($edit->starts_at)) ) : ''; ?>"/></div>
+                            <div><label for="starts_at">Start *</label><input name="starts_at" id="starts_at" type="datetime-local" required value="<?php echo $edit ? esc_attr( date('Y-m-d\TH:i', strtotime($edit->starts_at)) ) : ''; ?>"/></div>
                         </div>
                         <div class="va-field two">
                             <div><label for="service_id">Service</label>
@@ -864,24 +1111,40 @@ class Valcode_Appoint {
         $design = get_option('valcode_appoint_design', []);
         $primary = esc_attr($design['primary_color'] ?? '#0f172a');
         $accent  = esc_attr($design['accent_color'] ?? '#6366f1');
+        $gradient_start = esc_attr($design['accent_gradient_start'] ?? '#667eea');
+        $gradient_end = esc_attr($design['accent_gradient_end'] ?? '#764ba2');
         $radius  = esc_attr($design['radius'] ?? '14px');
         $font    = esc_attr($design['font_family'] ?? 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif');
         ?>
         <div class="wrap va-wrap">
             <h1 class="wp-heading-inline">Design</h1>
             <hr class="wp-header-end"/>
+            <?php if(isset($_GET['saved'])): ?>
+                <div class="notice notice-success is-dismissible"><p>✅ Design gespeichert!</p></div>
+            <?php endif; ?>
             <div class="va-card">
                 <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
                     <?php wp_nonce_field( 'valcode_save_design', '_va' ); ?>
                     <input type="hidden" name="action" value="valcode_save_design"/>
+
+                    <h3>Grundfarben</h3>
                     <div class="va-field two">
-                        <div><label for="primary_color">Primärfarbe</label><input type="color" id="primary_color" name="primary_color" value="<?php echo $primary; ?>"/></div>
-                        <div><label for="accent_color">Akzentfarbe</label><input type="color" id="accent_color" name="accent_color" value="<?php echo $accent; ?>"/></div>
+                        <div><label for="primary_color">Primärfarbe (Text & Rahmen)</label><input type="color" id="primary_color" name="primary_color" value="<?php echo $primary; ?>"/></div>
+                        <div><label for="accent_color">Akzentfarbe (Buttons & Highlights)</label><input type="color" id="accent_color" name="accent_color" value="<?php echo $accent; ?>"/></div>
                     </div>
+
+                    <h3>Login-Button Gradient</h3>
+                    <div class="va-field two">
+                        <div><label for="accent_gradient_start">Gradient Start</label><input type="color" id="accent_gradient_start" name="accent_gradient_start" value="<?php echo $gradient_start; ?>"/></div>
+                        <div><label for="accent_gradient_end">Gradient Ende</label><input type="color" id="accent_gradient_end" name="accent_gradient_end" value="<?php echo $gradient_end; ?>"/></div>
+                    </div>
+
+                    <h3>Typografie & Styling</h3>
                     <div class="va-field two">
                         <div><label for="radius">Eckenradius</label><input type="text" id="radius" name="radius" value="<?php echo $radius; ?>" placeholder="z.B. 14px"/></div>
                         <div><label for="font_family">Schriftfamilie</label><input type="text" id="font_family" name="font_family" value="<?php echo $font; ?>"/></div>
                     </div>
+
                     <div class="va-actions"><button class="button button-primary">Design speichern</button></div>
                 </form>
                 <p class="description">Diese Einstellungen beeinflussen das Frontend-Formular <code>[valcode_appoint]</code>.</p>
@@ -896,6 +1159,8 @@ class Valcode_Appoint {
         $opt = get_option('valcode_appoint_design', []);
         $opt['primary_color'] = sanitize_hex_color( $_POST['primary_color'] ?? '#0f172a' );
         $opt['accent_color']  = sanitize_hex_color( $_POST['accent_color'] ?? '#6366f1' );
+        $opt['accent_gradient_start'] = sanitize_hex_color( $_POST['accent_gradient_start'] ?? '#667eea' );
+        $opt['accent_gradient_end']   = sanitize_hex_color( $_POST['accent_gradient_end'] ?? '#764ba2' );
         $opt['radius']        = sanitize_text_field( $_POST['radius'] ?? '14px' );
         $opt['font_family']   = sanitize_text_field( $_POST['font_family'] ?? 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' );
         update_option('valcode_appoint_design', $opt);
@@ -1072,6 +1337,7 @@ class Valcode_Appoint {
         $staff_id       = absint( $_POST['staff_id'] ?? 0 );
         $starts_at_raw  = sanitize_text_field( $_POST['starts_at'] ?? '' );
         $notes          = sanitize_textarea_field( $_POST['notes'] ?? '' );
+        $user_id        = isset($_POST['user_id']) ? absint($_POST['user_id']) : null;
 
         if ( ! $customer_name || ! $service_id || ! $starts_at_raw ) {
             wp_send_json_error(['message'=>'Erforderliche Felder fehlen.']); return;
@@ -1089,6 +1355,44 @@ class Valcode_Appoint {
 
         if( ! $this->is_slot_free($staff_id, $service_id, $starts_at) ){
             wp_send_json_error(['message'=>'Dieser Slot ist nicht mehr verfügbar. Bitte anderen Zeitpunkt wählen.']); return;
+        }
+
+        // Create or get customer record for guest bookings
+        $customer_id = null;
+        if (!$user_id && $customer_email) {
+            // Check if guest customer with this email already exists
+            $existing_customer = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$this->tables['customers']} WHERE email = %s AND is_guest = 1",
+                $customer_email
+            ));
+
+            if ($existing_customer) {
+                // Update existing guest customer
+                $customer_id = $existing_customer->id;
+                $name_parts = explode(' ', $customer_name, 2);
+                $wpdb->update(
+                    $this->tables['customers'],
+                    [
+                        'first_name' => $name_parts[0],
+                        'last_name' => isset($name_parts[1]) ? $name_parts[1] : '',
+                        'updated_at' => current_time('mysql')
+                    ],
+                    ['id' => $customer_id],
+                    ['%s', '%s', '%s'],
+                    ['%d']
+                );
+            } else {
+                // Create new guest customer
+                $name_parts = explode(' ', $customer_name, 2);
+                $wpdb->insert($this->tables['customers'], [
+                    'first_name' => $name_parts[0],
+                    'last_name' => isset($name_parts[1]) ? $name_parts[1] : '',
+                    'email' => $customer_email,
+                    'is_guest' => 1,
+                    'created_at' => current_time('mysql')
+                ], ['%s', '%s', '%s', '%d', '%s']);
+                $customer_id = $wpdb->insert_id;
+            }
         }
 
         $ok = $wpdb->insert( $this->tables['appointments'], [
@@ -1117,7 +1421,12 @@ class Valcode_Appoint {
 
         // Email both customer and admin
         $admin_email = get_option('admin_email');
-        $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+        $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+        $from_email = 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+        $headers = [
+            'Content-Type: text/html; charset=UTF-8',
+            'From: ' . $blogname . ' <' . $from_email . '>'
+        ];
         $attachments = [];
         $tmp = wp_upload_dir();
         $ics_path = trailingslashit($tmp['basedir'])."appoint-$appt_id.ics";
@@ -1133,16 +1442,192 @@ class Valcode_Appoint {
             . esc_html( wp_date('H:i', strtotime($ends_at)) ) . '</p>'
             . '<p><a href="'.esc_url($gcal_link).'" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a></p>';
 
+        $mail_sent = false;
         if($customer_email){
-            wp_mail($customer_email, 'Buchungsbestätigung', $body_html, $headers, $attachments);
+            $mail_sent = wp_mail($customer_email, 'Buchungsbestätigung – ' . $blogname, $body_html, $headers, $attachments);
         }
-        wp_mail($admin_email, 'Neue Buchung', $body_html, $headers, $attachments);
+        wp_mail($admin_email, 'Neue Buchung – ' . $blogname, $body_html, $headers, $attachments);
+
+        // Clean up ICS file
+        if(file_exists($ics_path)) {
+            @unlink($ics_path);
+        }
 
         wp_send_json_success([
             'message'=>'Termin bestätigt. Bestätigung per E-Mail gesendet.',
             'appointment_id' => $appt_id,
             'gcal' => $gcal_link
         ]);
+    }
+
+    // Custom customer login (separate from WordPress)
+    public function ajax_customer_login() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $email = sanitize_email( $_POST['email'] ?? '' );
+        $password = $_POST['password'] ?? '';
+
+        if ( ! $email || ! $password ) {
+            wp_send_json_error(['message'=>'E-Mail und Passwort erforderlich.']); return;
+        }
+
+        $customer = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['customers']} WHERE email=%s",
+            $email
+        ));
+
+        if ( ! $customer || ! $customer->password_hash ) {
+            wp_send_json_error(['message'=>'Ungültige Anmeldedaten.']); return;
+        }
+
+        if ( ! password_verify($password, $customer->password_hash) ) {
+            wp_send_json_error(['message'=>'Ungültige Anmeldedaten.']); return;
+        }
+
+        // Update last login
+        $wpdb->update( $this->tables['customers'],
+            ['last_login' => current_time('mysql')],
+            ['id' => $customer->id]
+        );
+
+        // Set session
+        if ( ! session_id() ) session_start();
+        $_SESSION['valcode_customer_id'] = $customer->id;
+        $_SESSION['valcode_customer_email'] = $customer->email;
+        $_SESSION['valcode_customer_name'] = $customer->first_name . ' ' . $customer->last_name;
+
+        wp_send_json_success([
+            'message'=>'Erfolgreich angemeldet!',
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->first_name . ' ' . $customer->last_name,
+            'customer_email' => $customer->email
+        ]);
+    }
+
+    public function ajax_customer_register() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $first_name = sanitize_text_field( $_POST['first_name'] ?? '' );
+        $last_name = sanitize_text_field( $_POST['last_name'] ?? '' );
+        $email = sanitize_email( $_POST['email'] ?? '' );
+        $phone = sanitize_text_field( $_POST['phone'] ?? '' );
+        $password = $_POST['password'] ?? '';
+        $notes = sanitize_textarea_field( $_POST['notes'] ?? '' );
+
+        if ( ! $first_name || ! $last_name || ! $email || ! $password ) {
+            wp_send_json_error(['message'=>'Alle Pflichtfelder ausfüllen.']); return;
+        }
+
+        if ( strlen($password) < 6 ) {
+            wp_send_json_error(['message'=>'Passwort muss mindestens 6 Zeichen lang sein.']); return;
+        }
+
+        // Check if email already exists
+        $existing = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['customers']} WHERE email=%s",
+            $email
+        ));
+
+        $customer_id = null;
+
+        if ( $existing ) {
+            // If it's a guest account, convert it to a registered account
+            if ( $existing->is_guest == 1 ) {
+                // Update guest account to registered account
+                $result = $wpdb->update(
+                    $this->tables['customers'],
+                    [
+                        'first_name' => $first_name,
+                        'last_name' => $last_name,
+                        'phone' => $phone,
+                        'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                        'notes' => $notes,
+                        'is_guest' => 0,
+                        'updated_at' => current_time('mysql')
+                    ],
+                    ['id' => $existing->id],
+                    ['%s', '%s', '%s', '%s', '%s', '%d', '%s'],
+                    ['%d']
+                );
+
+                if ( $result === false ) {
+                    wp_send_json_error(['message'=>'Fehler beim Aktualisieren des Kontos.']); return;
+                }
+
+                $customer_id = $existing->id;
+            } else {
+                // Already a registered account
+                wp_send_json_error(['message'=>'Diese E-Mail ist bereits registriert. Bitte melden Sie sich an.']); return;
+            }
+        } else {
+            // Create new customer
+            $result = $wpdb->insert( $this->tables['customers'], [
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $email,
+                'phone' => $phone,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'notes' => $notes,
+                'is_guest' => 0,
+                'created_at' => current_time('mysql')
+            ]);
+
+            if ( ! $result ) {
+                wp_send_json_error(['message'=>'Registrierung fehlgeschlagen.']); return;
+            }
+
+            $customer_id = $wpdb->insert_id;
+        }
+
+        // Auto login
+        if ( ! session_id() ) session_start();
+        $_SESSION['valcode_customer_id'] = $customer_id;
+        $_SESSION['valcode_customer_email'] = $email;
+        $_SESSION['valcode_customer_name'] = $first_name . ' ' . $last_name;
+
+        // Different message if guest account was converted
+        $message = 'Erfolgreich registriert und angemeldet!';
+        if ( $existing && $existing->is_guest == 1 ) {
+            $message = 'Ihr Gastkonto wurde erfolgreich in ein registriertes Konto umgewandelt!';
+        }
+
+        wp_send_json_success([
+            'message' => $message,
+            'customer_id' => $customer_id,
+            'customer_name' => $first_name . ' ' . $last_name,
+            'customer_email' => $email,
+            'was_converted' => ($existing && $existing->is_guest == 1)
+        ]);
+    }
+
+    public function ajax_customer_logout() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+
+        if ( ! session_id() ) session_start();
+        unset($_SESSION['valcode_customer_id']);
+        unset($_SESSION['valcode_customer_email']);
+        unset($_SESSION['valcode_customer_name']);
+
+        wp_send_json_success(['message'=>'Erfolgreich abgemeldet.']);
+    }
+
+    public function ajax_customer_check() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+
+        if ( ! session_id() ) session_start();
+
+        if ( isset($_SESSION['valcode_customer_id']) ) {
+            wp_send_json_success([
+                'logged_in' => true,
+                'customer_id' => $_SESSION['valcode_customer_id'],
+                'customer_name' => $_SESSION['valcode_customer_name'] ?? '',
+                'customer_email' => $_SESSION['valcode_customer_email'] ?? ''
+            ]);
+        } else {
+            wp_send_json_success(['logged_in' => false]);
+        }
     }
 
     public function shortcode_form( $atts ) {
@@ -1215,30 +1700,164 @@ class Valcode_Appoint {
                 </div>
             </div>
 
-            <!-- Step 4: Persönliche Daten -->
+            <!-- Step 4: Login oder Gast -->
             <div class="va-step" data-step="4" hidden>
-                <h3>Ihre Kontaktdaten</h3>
-                
-                <div class="va-grid">
-                    <div class="va-field">
-                        <label for="va_name">Vor- und Nachname *</label>
-                        <input id="va_name" name="customer_name" type="text" required placeholder="Max Muster">
-                    </div>
+                <h3>Wie möchten Sie fortfahren?</h3>
 
-                    <div class="va-field">
-                        <label for="va_email">E-Mail-Adresse *</label>
-                        <input id="va_email" name="customer_email" type="email" required placeholder="max@beispiel.ch">
+                <!-- Logged in customer info (will be shown via JS if logged in) -->
+                <div class="va-customer-logged-in" id="va_customer_logged_in" hidden>
+                    <div class="va-customer-card">
+                        <div class="va-customer-info">
+                            <div class="va-customer-avatar">
+                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="20" cy="20" r="20" fill="#6366f1"/>
+                                    <path d="M20 20C23.3137 20 26 17.3137 26 14C26 10.6863 23.3137 8 20 8C16.6863 8 14 10.6863 14 14C14 17.3137 16.6863 20 20 20Z" fill="white"/>
+                                    <path d="M20 22C13.3726 22 8 25.134 8 29V32H32V29C32 25.134 26.6274 22 20 22Z" fill="white"/>
+                                </svg>
+                            </div>
+                            <div class="va-customer-details">
+                                <p class="va-customer-greeting">Willkommen zurück!</p>
+                                <p class="va-customer-name" id="va_logged_customer_name"></p>
+                                <p class="va-customer-email" id="va_logged_customer_email"></p>
+                            </div>
+                        </div>
+                        <button type="button" class="va-btn va-btn-logout" id="va_logout_btn">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6 14H3C2.73478 14 2.48043 13.8946 2.29289 13.7071C2.10536 13.5196 2 13.2652 2 13V3C2 2.73478 2.10536 2.48043 2.29289 2.29289C2.48043 2.10536 2.73478 2 3 2H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M11 11L14 8L11 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M14 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Abmelden
+                        </button>
                     </div>
-
-                    <div class="va-field full">
-                        <label for="va_notes">Notizen / Wünsche (optional)</label>
-                        <textarea id="va_notes" name="notes" rows="4" placeholder="Besondere Wünsche oder Hinweise für Ihren Termin..."></textarea>
-                    </div>
+                    <input type="hidden" id="va_customer_id" value=""/>
                 </div>
 
-                <div class="va-actions">
+                <!-- Auth options (shown when not logged in) -->
+                <div id="va_auth_container"><?php // Will be shown/hidden by JS ?>
+                    <div class="va-auth-options">
+                        <div class="va-radio-card">
+                            <input type="radio" name="booking_mode" value="guest" id="va_mode_guest" checked/>
+                            <label class="va-radio-label" for="va_mode_guest">
+                                <div class="va-radio-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <strong>Als Gast</strong>
+                                <small>Schnell & ohne Registrierung</small>
+                            </label>
+                        </div>
+                        <div class="va-radio-card">
+                            <input type="radio" name="booking_mode" value="login" id="va_mode_login"/>
+                            <label class="va-radio-label" for="va_mode_login">
+                                <div class="va-radio-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M15 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M10 17L15 12L10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <strong>Anmelden</strong>
+                                <small>Mit bestehendem Konto</small>
+                            </label>
+                        </div>
+                        <div class="va-radio-card">
+                            <input type="radio" name="booking_mode" value="register" id="va_mode_register"/>
+                            <label class="va-radio-label" for="va_mode_register">
+                                <div class="va-radio-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M8.5 11C10.7091 11 12.5 9.20914 12.5 7C12.5 4.79086 10.7091 3 8.5 3C6.29086 3 4.5 4.79086 4.5 7C4.5 9.20914 6.29086 11 8.5 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M20 8V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M23 11H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <strong>Registrieren</strong>
+                                <small>Neues Konto erstellen</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Guest Form -->
+                    <div id="va_guest_form" class="va-auth-form" style="margin-top: 20px;">
+                        <div class="va-grid">
+                            <div class="va-field">
+                                <label for="va_guest_name">Vor- und Nachname *</label>
+                                <input id="va_guest_name" name="guest_name" type="text" placeholder="Max Muster">
+                            </div>
+                            <div class="va-field">
+                                <label for="va_guest_email">E-Mail-Adresse *</label>
+                                <input id="va_guest_email" name="guest_email" type="email" placeholder="max@beispiel.ch">
+                            </div>
+                            <div class="va-field full">
+                                <label for="va_notes">Notizen / Wünsche (optional)</label>
+                                <textarea id="va_notes" name="notes" rows="4" placeholder="Besondere Wünsche oder Hinweise..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Login Form -->
+                    <div id="va_login_form" class="va-auth-form" hidden style="margin-top: 20px;">
+                        <div class="va-grid">
+                            <div class="va-field">
+                                <label for="va_login_email">E-Mail oder Benutzername *</label>
+                                <input id="va_login_email" name="login_email" type="text" placeholder="Ihre E-Mail">
+                            </div>
+                            <div class="va-field">
+                                <label for="va_login_password">Passwort *</label>
+                                <input id="va_login_password" name="login_password" type="password" placeholder="Ihr Passwort">
+                            </div>
+                        </div>
+                        <p class="description"><a href="#" id="va_forgot_password_link">Passwort vergessen?</a></p>
+                    </div>
+
+                    <!-- Forgot Password Form -->
+                    <div id="va_forgot_form" class="va-auth-form" hidden style="margin-top: 20px;">
+                        <div class="va-field">
+                            <label for="va_reset_email">E-Mail-Adresse *</label>
+                            <input id="va_reset_email" type="email" placeholder="Ihre E-Mail-Adresse">
+                        </div>
+                        <button type="button" id="va_reset_request_btn" class="va-btn">Reset-Link senden</button>
+                        <p class="description"><a href="#" id="va_back_to_login">Zurück zum Login</a></p>
+                        <div id="va_reset_msg" style="margin-top:12px;"></div>
+                    </div>
+
+                    <!-- Register Form -->
+                    <div id="va_register_form" class="va-auth-form" hidden style="margin-top: 20px;">
+                        <div class="va-grid">
+                            <div class="va-field">
+                                <label for="va_reg_firstname">Vorname *</label>
+                                <input id="va_reg_firstname" name="reg_firstname" type="text" placeholder="Max">
+                            </div>
+                            <div class="va-field">
+                                <label for="va_reg_lastname">Nachname *</label>
+                                <input id="va_reg_lastname" name="reg_lastname" type="text" placeholder="Muster">
+                            </div>
+                            <div class="va-field">
+                                <label for="va_reg_email">E-Mail-Adresse *</label>
+                                <input id="va_reg_email" name="reg_email" type="email" placeholder="max@beispiel.ch">
+                            </div>
+                            <div class="va-field">
+                                <label for="va_reg_phone">Telefon</label>
+                                <input id="va_reg_phone" name="reg_phone" type="tel" placeholder="+41 79 123 45 67">
+                            </div>
+                            <div class="va-field full">
+                                <label for="va_reg_password">Passwort *</label>
+                                <input id="va_reg_password" name="reg_password" type="password" placeholder="Mindestens 6 Zeichen">
+                            </div>
+                            <div class="va-field full">
+                                <label for="va_reg_notes">Notizen (optional)</label>
+                                <textarea id="va_reg_notes" name="reg_notes" rows="3" placeholder="Besondere Hinweise..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- end va_auth_container -->
+
+                <div class="va-actions" style="margin-top: 20px;">
                     <button type="button" id="va_prev_4" class="va-btn va-prev">Zurück</button>
-                    <button type="submit" class="va-btn">Termin verbindlich buchen</button>
+                    <button type="submit" class="va-btn" id="va_submit_booking">Termin verbindlich buchen</button>
                 </div>
 
                 <p class="va-msg" id="va_msg" hidden></p>
@@ -1264,6 +1883,222 @@ class Valcode_Appoint {
         </form>
     </div>
 
+        <?php
+        return ob_get_clean();
+    }
+
+    // Password Reset Request
+    public function ajax_customer_reset_request() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $email = sanitize_email( $_POST['email'] ?? '' );
+
+        if ( ! $email ) {
+            wp_send_json_error(['message'=>'Bitte E-Mail-Adresse eingeben.']); return;
+        }
+
+        // Check if customer exists and is not a guest
+        $customer = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['customers']} WHERE email=%s AND is_guest=0",
+            $email
+        ));
+
+        if ( ! $customer ) {
+            // Don't reveal if email exists or not for security
+            wp_send_json_success(['message'=>'Wenn die E-Mail existiert, wurde ein Reset-Link gesendet.']); return;
+        }
+
+        // Generate reset token
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+        // Save token
+        $wpdb->update(
+            $this->tables['customers'],
+            [
+                'reset_token' => $token,
+                'reset_expires' => $expires
+            ],
+            ['id' => $customer->id],
+            ['%s', '%s'],
+            ['%d']
+        );
+
+        // Send email
+        $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+        $from_email = 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+        $reset_link = home_url('?valcode_reset=' . $token);
+
+        $subject = 'Passwort zurücksetzen – ' . $blogname;
+        $message = '<p>Hallo ' . esc_html($customer->first_name) . ',</p>';
+        $message .= '<p>Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.</p>';
+        $message .= '<p><a href="' . esc_url($reset_link) . '">Klicken Sie hier, um Ihr Passwort zurückzusetzen</a></p>';
+        $message .= '<p>Dieser Link ist 1 Stunde gültig.</p>';
+        $message .= '<p>Falls Sie diese Anfrage nicht gestellt haben, ignorieren Sie diese E-Mail.</p>';
+
+        $headers = [
+            'Content-Type: text/html; charset=UTF-8',
+            'From: ' . $blogname . ' <' . $from_email . '>'
+        ];
+
+        wp_mail($email, $subject, $message, $headers);
+
+        wp_send_json_success(['message'=>'Reset-Link wurde per E-Mail gesendet.']);
+    }
+
+    // Password Reset
+    public function ajax_customer_reset_password() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $token = sanitize_text_field( $_POST['token'] ?? '' );
+        $password = $_POST['password'] ?? '';
+
+        if ( ! $token || ! $password ) {
+            wp_send_json_error(['message'=>'Token und Passwort erforderlich.']); return;
+        }
+
+        if ( strlen($password) < 6 ) {
+            wp_send_json_error(['message'=>'Passwort muss mindestens 6 Zeichen lang sein.']); return;
+        }
+
+        // Find customer by token
+        $customer = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['customers']} WHERE reset_token=%s AND reset_expires > NOW()",
+            $token
+        ));
+
+        if ( ! $customer ) {
+            wp_send_json_error(['message'=>'Ungültiger oder abgelaufener Reset-Link.']); return;
+        }
+
+        // Update password and clear token
+        $wpdb->update(
+            $this->tables['customers'],
+            [
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'reset_token' => null,
+                'reset_expires' => null,
+                'updated_at' => current_time('mysql')
+            ],
+            ['id' => $customer->id],
+            ['%s', '%s', '%s', '%s'],
+            ['%d']
+        );
+
+        wp_send_json_success(['message'=>'Passwort wurde erfolgreich zurückgesetzt. Sie können sich jetzt anmelden.']);
+    }
+
+    // Shortcode for password reset page
+    public function shortcode_password_reset( $atts ) {
+        // Get token from URL
+        $token = isset($_GET['valcode_reset']) ? sanitize_text_field($_GET['valcode_reset']) : '';
+
+        if (!$token) {
+            return '<div class="va-booking-form va-card"><p class="va-error">Ungültiger Reset-Link.</p></div>';
+        }
+
+        // Verify token exists and is not expired
+        global $wpdb;
+        $customer = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['customers']} WHERE reset_token=%s AND reset_expires > NOW()",
+            $token
+        ));
+
+        if (!$customer) {
+            return '<div class="va-booking-form va-card"><p class="va-error">Dieser Reset-Link ist ungültig oder abgelaufen.</p></div>';
+        }
+
+        ob_start();
+        ?>
+        <div class="va-booking-form va-card">
+            <h2>Neues Passwort setzen</h2>
+            <p>Geben Sie Ihr neues Passwort ein für: <strong><?php echo esc_html($customer->email); ?></strong></p>
+
+            <div class="va-field">
+                <label for="va_new_password">Neues Passwort *</label>
+                <input type="password" id="va_new_password" placeholder="Mindestens 6 Zeichen" />
+            </div>
+
+            <div class="va-field">
+                <label for="va_new_password_confirm">Passwort bestätigen *</label>
+                <input type="password" id="va_new_password_confirm" placeholder="Passwort wiederholen" />
+            </div>
+
+            <button type="button" id="va_reset_password_btn" class="va-btn">Passwort zurücksetzen</button>
+
+            <div id="va_reset_result" style="margin-top: 16px;"></div>
+        </div>
+
+        <script>
+        (function(){
+            var btn = document.getElementById('va_reset_password_btn');
+            var result = document.getElementById('va_reset_result');
+            var newPass = document.getElementById('va_new_password');
+            var confirmPass = document.getElementById('va_new_password_confirm');
+
+            if(btn){
+                btn.addEventListener('click', function(){
+                    if(!newPass.value || !confirmPass.value){
+                        result.textContent = 'Bitte beide Felder ausfüllen.';
+                        result.className = 'va-msg err';
+                        return;
+                    }
+
+                    if(newPass.value !== confirmPass.value){
+                        result.textContent = 'Passwörter stimmen nicht überein.';
+                        result.className = 'va-msg err';
+                        return;
+                    }
+
+                    if(newPass.value.length < 6){
+                        result.textContent = 'Passwort muss mindestens 6 Zeichen lang sein.';
+                        result.className = 'va-msg err';
+                        return;
+                    }
+
+                    btn.disabled = true;
+                    btn.textContent = 'Wird gespeichert...';
+
+                    var fd = new FormData();
+                    fd.append('action', 'valcode_customer_reset_password');
+                    fd.append('nonce', '<?php echo wp_create_nonce('valcode_appoint_nonce'); ?>');
+                    fd.append('token', '<?php echo esc_js($token); ?>');
+                    fd.append('password', newPass.value);
+
+                    fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: fd
+                    })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if(res && res.success){
+                            result.textContent = res.data.message || 'Passwort wurde zurückgesetzt!';
+                            result.className = 'va-msg ok';
+                            newPass.value = '';
+                            confirmPass.value = '';
+                            setTimeout(function(){
+                                window.location.href = '<?php echo home_url(); ?>';
+                            }, 2000);
+                        } else {
+                            result.textContent = res && res.data && res.data.message ? res.data.message : 'Fehler beim Zurücksetzen.';
+                            result.className = 'va-msg err';
+                            btn.disabled = false;
+                            btn.textContent = 'Passwort zurücksetzen';
+                        }
+                    })
+                    .catch(function(){
+                        result.textContent = 'Fehler beim Zurücksetzen.';
+                        result.className = 'va-msg err';
+                        btn.disabled = false;
+                        btn.textContent = 'Passwort zurücksetzen';
+                    });
+                });
+            }
+        })();
+        </script>
         <?php
         return ob_get_clean();
     }

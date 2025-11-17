@@ -22,4 +22,16 @@
             $worker.html('<option value="">Fehler beim Laden</option>').prop('disabled', true);
         });
     });
+
+    // Customer select: auto-fill customer name and email
+    $(document).on('change', '#customer_select', function(){
+        var $option = $(this).find('option:selected');
+        var name = $option.data('name');
+        var email = $option.data('email');
+
+        if(name && email){
+            $('#customer_name').val(name);
+            $('#customer_email').val(email);
+        }
+    });
 })(jQuery);
