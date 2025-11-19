@@ -312,6 +312,11 @@ class Valcode_Appoint {
 
         wp_register_script( 'valcode-appoint', plugins_url( 'assets/js/appoint.js', __FILE__ ), ['jquery'], $this->version, true );
         wp_localize_script( 'valcode-appoint', 'ValcodeAppoint', [
+            'colors' => [
+                'accent' => $accent,
+                'gradientStart' => $gradient_start,
+                'gradientEnd' => $gradient_end
+            ],
             'ajax' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('valcode_appoint_nonce'),
             'minAdvanceDays' => $min_advance
@@ -1593,14 +1598,17 @@ class Valcode_Appoint {
         $logo_url = $custom_logo_id ? wp_get_attachment_image_url($custom_logo_id, 'full') : '';
         $site_url = home_url();
 
-        // WordPress admin color scheme (default to fresh)
-        $primary_color = '#2271b1';
-        $accent_color = '#72aee6';
+        // Get plugin design settings
+        $design = get_option('valcode_appoint_design', []);
+        $primary_color = isset($design['primary_color']) ? $design['primary_color'] : '#0f172a';
+        $accent_color = isset($design['accent_color']) ? $design['accent_color'] : '#6366f1';
+        $gradient_start = isset($design['accent_gradient_start']) ? $design['accent_gradient_start'] : '#667eea';
+        $gradient_end = isset($design['accent_gradient_end']) ? $design['accent_gradient_end'] : '#764ba2';
 
         // Enhanced email body for customer
         $customer_body_html = '
         <div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen-Sans, Ubuntu, Cantarell, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-            <div style="background: linear-gradient(135deg, ' . $primary_color . ' 0%, ' . $accent_color . ' 100%); padding: 40px 30px; text-align: center; color: white; border-radius: 0;">
+            <div style="background: linear-gradient(135deg, ' . $gradient_start . ' 0%, ' . $gradient_end . ' 100%); padding: 40px 30px; text-align: center; color: white; border-radius: 0;">
                 ' . ($logo_url ? '<div style="margin-bottom: 20px;"><img src="' . esc_url($logo_url) . '" alt="' . esc_attr($blogname) . '" style="max-height: 60px; width: auto;"/></div>' : '') . '
                 <h1 style="margin: 0; font-size: 32px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">✓ Buchung bestätigt!</h1>
             </div>
@@ -1608,7 +1616,7 @@ class Valcode_Appoint {
                 <p style="font-size: 18px; color: #1e1e1e; margin-top: 0;">Hallo <strong>' . esc_html($customer_name) . '</strong>,</p>
                 <p style="font-size: 16px; color: #3c434a; line-height: 1.6;">vielen Dank für Ihre Buchung! Wir freuen uns auf Ihren Besuch.</p>
 
-                <div style="background: white; border-radius: 8px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ' . $primary_color . ';">
+                <div style="background: white; border-radius: 8px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ' . $accent_color . ';">
                     <h2 style="margin: 0 0 20px 0; color: #1e1e1e; font-size: 22px; font-weight: 600;">📋 Ihre Termindetails</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
@@ -1629,7 +1637,7 @@ class Valcode_Appoint {
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
                             <td style="padding: 12px 0; color: #646970; font-size: 15px;">💰 Preis:</td>
-                            <td style="padding: 12px 0; color: ' . $primary_color . '; font-weight: 700; text-align: right; font-size: 16px;">CHF ' . number_format((float)$service->price, 2) . '</td>
+                            <td style="padding: 12px 0; color: ' . $accent_color . '; font-weight: 700; text-align: right; font-size: 16px;">CHF ' . number_format((float)$service->price, 2) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
                             <td style="padding: 12px 0; color: #646970; font-size: 15px;">👤 Mitarbeiter:</td>
@@ -1643,7 +1651,7 @@ class Valcode_Appoint {
                 </div>' : '') . '
 
                 <div style="text-align: center; margin: 35px 0;">
-                    <a href="' . esc_url($gcal_link) . '" style="display: inline-block; background: ' . $primary_color . '; color: white; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(34, 113, 177, 0.3); transition: all 0.3s;">
+                    <a href="' . esc_url($gcal_link) . '" style="display: inline-block; background: linear-gradient(135deg, ' . $gradient_start . ' 0%, ' . $gradient_end . ' 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: all 0.3s;">
                         📅 Zu Google Kalender hinzufügen
                     </a>
                 </div>
@@ -1665,12 +1673,12 @@ class Valcode_Appoint {
         // Admin notification email
         $admin_body_html = '
         <div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen-Sans, Ubuntu, Cantarell, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-            <div style="background: linear-gradient(135deg, #1e1e1e 0%, #3c434a 100%); padding: 40px 30px; text-align: center; color: white;">
+            <div style="background: linear-gradient(135deg, ' . $primary_color . ' 0%, ' . $accent_color . ' 100%); padding: 40px 30px; text-align: center; color: white;">
                 ' . ($logo_url ? '<div style="margin-bottom: 20px;"><img src="' . esc_url($logo_url) . '" alt="' . esc_attr($blogname) . '" style="max-height: 60px; width: auto;"/></div>' : '') . '
                 <h1 style="margin: 0; font-size: 28px; font-weight: 600;">🔔 Neue Buchung erhalten</h1>
             </div>
             <div style="background: #f6f7f7; padding: 40px 30px;">
-                <div style="background: white; border-radius: 8px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #d63638;">
+                <div style="background: white; border-radius: 8px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ' . $accent_color . ';">
                     <h2 style="margin: 0 0 20px 0; color: #1e1e1e; font-size: 22px; font-weight: 600;">📋 Buchungsdetails</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
@@ -1679,7 +1687,7 @@ class Valcode_Appoint {
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
                             <td style="padding: 12px 0; color: #646970; font-size: 15px;">✉️ E-Mail:</td>
-                            <td style="padding: 12px 0; color: ' . $primary_color . '; font-weight: 600; text-align: right; font-size: 15px;"><a href="mailto:' . esc_attr($customer_email) . '" style="color: ' . $primary_color . '; text-decoration: none;">' . esc_html($customer_email) . '</a></td>
+                            <td style="padding: 12px 0; color: ' . $accent_color . '; font-weight: 600; text-align: right; font-size: 15px;"><a href="mailto:' . esc_attr($customer_email) . '" style="color: ' . $accent_color . '; text-decoration: none;">' . esc_html($customer_email) . '</a></td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
                             <td style="padding: 12px 0; color: #646970; font-size: 15px;">Service:</td>
@@ -1713,7 +1721,7 @@ class Valcode_Appoint {
                 </div>' : '') . '
 
                 <div style="text-align: center; margin: 35px 0;">
-                    <a href="' . esc_url(admin_url('admin.php?page=valcode-appoint-appointments')) . '" style="display: inline-block; background: ' . $primary_color . '; color: white; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(34, 113, 177, 0.3);">
+                    <a href="' . esc_url(admin_url('admin.php?page=valcode-appoint-appointments')) . '" style="display: inline-block; background: linear-gradient(135deg, ' . $gradient_start . ' 0%, ' . $gradient_end . ' 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">
                         📋 Termin im Dashboard anzeigen
                     </a>
                 </div>
@@ -2184,7 +2192,7 @@ class Valcode_Appoint {
                     <h3 style="font-size: 28px; color: #1e1e1e; margin: 20px 0 10px 0;">Buchung erfolgreich!</h3>
                     <p style="font-size: 16px; color: #646970; margin-bottom: 30px;">Ihre Terminbuchung wurde bestätigt</p>
 
-                    <div class="va-success-details" id="va_success_msg" style="background: #f6f7f7; border-radius: 12px; padding: 30px; margin: 20px 0; border-left: 4px solid #2271b1; text-align: left;">
+                    <div class="va-success-details" id="va_success_msg" style="background: #f6f7f7; border-radius: 12px; padding: 30px; margin: 20px 0; border-left: 4px solid var(--va-accent); text-align: left;">
                         <p style="font-size: 15px; color: #3c434a; line-height: 1.8; margin: 0;">
                             <strong style="color: #1e1e1e; font-size: 16px;">✓ Was passiert jetzt?</strong><br><br>
                             📧 Sie erhalten in Kürze eine Bestätigungs-E-Mail mit:<br>
@@ -2195,7 +2203,7 @@ class Valcode_Appoint {
                         </p>
                     </div>
 
-                    <button type="button" class="va-btn va-btn-new" onclick="window.location.reload()" style="background: linear-gradient(135deg, #2271b1 0%, #72aee6 100%); border: none; color: white; font-size: 16px; padding: 16px 40px; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 113, 177, 0.3); transition: all 0.3s; margin-top: 20px;">
+                    <button type="button" class="va-btn va-btn-new" onclick="window.location.reload()" style="background: linear-gradient(135deg, var(--va-gradient-start) 0%, var(--va-gradient-end) 100%); border: none; color: white; font-size: 16px; padding: 16px 40px; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: all 0.3s; margin-top: 20px;">
                         ← Neuen Termin buchen
                     </button>
                 </div>
