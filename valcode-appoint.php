@@ -69,6 +69,7 @@ class Valcode_Appoint {
         add_action( 'wp_ajax_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_nopriv_valcode_create_appointment', [ $this, 'ajax_create_appointment' ] );
         add_action( 'wp_ajax_valcode_get_events', [ $this, 'ajax_get_events' ] );
+        add_action( 'wp_ajax_valcode_get_appointment', [ $this, 'ajax_get_appointment' ] );
 
         add_action( 'wp_ajax_valcode_customer_login', [ $this, 'ajax_customer_login' ] );
         add_action( 'wp_ajax_nopriv_valcode_customer_login', [ $this, 'ajax_customer_login' ] );
@@ -727,102 +728,117 @@ class Valcode_Appoint {
 
         ?>
         <div class="wrap va-wrap">
-            <h1 class="wp-heading-inline">Termine</h1>
+            <div class="va-page-header">
+                <h1 class="wp-heading-inline">Termine</h1>
+                <button class="button button-primary" id="va-add-appointment-btn">+ Neuer Termin</button>
+            </div>
             <hr class="wp-header-end"/>
-            <div class="va-grid">
-                <div class="va-card">
-                    <h2><?php echo $edit ? 'Termin bearbeiten' : 'Neuen Termin anlegen'; ?></h2>
-                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
-                        <?php wp_nonce_field( 'valcode_save_appointment', '_va' ); ?>
-                        <input type="hidden" name="action" value="valcode_save_appointment"/>
-                        <?php if ($edit): ?><input type="hidden" name="id" value="<?php echo (int)$edit->id; ?>"/><?php endif; ?>
 
-                        <div class="va-field">
-                            <label for="customer_select">Kunde auswählen (optional)</label>
-                            <select name="customer_select" id="customer_select" style="margin-bottom: 10px;">
-                                <option value="">-- Manuell eingeben oder Kunde wählen --</option>
-                                <?php foreach ($customers as $cust): ?>
-                                    <option value="<?php echo (int)$cust->id; ?>"
-                                            data-name="<?php echo esc_attr($cust->first_name . ' ' . $cust->last_name); ?>"
-                                            data-email="<?php echo esc_attr($cust->email); ?>">
-                                        <?php echo esc_html($cust->first_name . ' ' . $cust->last_name . ' (' . $cust->email . ')'); ?>
-                                    </option>
+            <div class="va-card">
+                <h2>Termine</h2>
+                <table class="widefat fixed striped">
+                    <thead><tr><th>Start</th><th>Kunde</th><th>Service</th><th>Mitarbeiter</th><th>Status</th><th>Aktionen</th></tr></thead>
+                    <tbody>
+                    <?php if ( $rows ) : foreach ( $rows as $r ) : ?>
+                        <tr>
+                            <td><?php echo esc_html( date_i18n('d.m.Y H:i', strtotime($r->starts_at)) ); ?></td>
+                            <td><?php echo esc_html($r->customer_name); ?></td>
+                            <td><?php echo esc_html($r->service_name ?: ('#'.$r->service_id)); ?></td>
+                            <td><?php echo esc_html($r->staff_name ?: '-'); ?></td>
+                            <td><span class="va-status va-status-<?php echo esc_attr($r->status); ?>"><?php echo esc_html($r->status); ?></span></td>
+                            <td class="va-actions-inline">
+                                <button class="button button-small va-edit-appointment" data-id="<?php echo (int)$r->id; ?>">Bearbeiten</button>
+                                <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" onsubmit="return confirm('Termin wirklich löschen?');" style="display:inline">
+                                    <?php wp_nonce_field( 'valcode_delete_appointment', '_va' ); ?>
+                                    <input type="hidden" name="action" value="valcode_delete_appointment"/>
+                                    <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
+                                    <button class="button button-small button-link-delete">Löschen</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; else: ?>
+                        <tr><td colspan="6">Noch keine Termine vorhanden.</td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modal for Add/Edit Appointment -->
+        <div id="va-appointment-modal" class="va-modal" style="display: none;">
+            <div class="va-modal-content">
+                <div class="va-modal-header">
+                    <h2 id="va-modal-title">Neuen Termin anlegen</h2>
+                    <button class="va-modal-close">&times;</button>
+                </div>
+                <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form" id="va-appointment-form">
+                    <?php wp_nonce_field( 'valcode_save_appointment', '_va' ); ?>
+                    <input type="hidden" name="action" value="valcode_save_appointment"/>
+                    <input type="hidden" name="id" id="appointment_id" value=""/>
+                    <input type="hidden" name="redirect_back" value="1"/>
+
+                    <div class="va-field">
+                        <label for="modal_customer_select">Kunde auswählen (optional)</label>
+                        <select name="customer_select" id="modal_customer_select">
+                            <option value="">-- Manuell eingeben oder Kunde wählen --</option>
+                            <?php foreach ($customers as $cust): ?>
+                                <option value="<?php echo (int)$cust->id; ?>"
+                                        data-name="<?php echo esc_attr($cust->first_name . ' ' . $cust->last_name); ?>"
+                                        data-email="<?php echo esc_attr($cust->email); ?>">
+                                    <?php echo esc_html($cust->first_name . ' ' . $cust->last_name . ' (' . $cust->email . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="va-field"><label for="modal_customer_name">Kundenname *</label><input name="customer_name" id="modal_customer_name" type="text" required /></div>
+                    <div class="va-field two">
+                        <div><label for="modal_customer_email">E-Mail</label><input name="customer_email" id="modal_customer_email" type="email" /></div>
+                        <div><label for="modal_starts_at">Start *</label><input name="starts_at" id="modal_starts_at" type="datetime-local" required /></div>
+                    </div>
+                    <div class="va-field two">
+                        <div><label for="modal_service_id">Service *</label>
+                            <select name="service_id" id="modal_service_id" required>
+                                <option value="">Bitte wählen…</option>
+                                <?php foreach ($services as $s): ?>
+                                    <option value="<?php echo (int)$s->id; ?>"><?php echo esc_html($s->name); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-
-                        <div class="va-field"><label for="customer_name">Kundenname *</label><input name="customer_name" id="customer_name" type="text" required value="<?php echo esc_attr($edit->customer_name ?? ''); ?>"/></div>
-                        <div class="va-field two">
-                            <div><label for="customer_email">E-Mail</label><input name="customer_email" id="customer_email" type="email" value="<?php echo esc_attr($edit->customer_email ?? ''); ?>"/></div>
-                            <div><label for="starts_at">Start *</label><input name="starts_at" id="starts_at" type="datetime-local" required value="<?php echo $edit ? esc_attr( date('Y-m-d\TH:i', strtotime($edit->starts_at)) ) : ''; ?>"/></div>
-                        </div>
-                        <div class="va-field two">
-                            <div><label for="service_id">Service</label>
-                                <select name="service_id" id="service_id" required>
-                                    <option value="">Bitte wählen…</option>
-                                    <?php foreach ($services as $s): ?>
-                                        <option value="<?php echo (int)$s->id; ?>" <?php selected( $edit && (int)$edit->service_id === (int)$s->id ); ?>><?php echo esc_html($s->name); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div><label for="staff_id">Mitarbeiter</label>
-                                <select name="staff_id" id="staff_id" <?php echo $edit ? '' : 'disabled'; ?>>
-                                    <?php if ( $edit ) : ?>
-                                        <option value="0">-</option>
-                                        <?php foreach ($staff as $st): ?>
-                                            <option value="<?php echo (int)$st->id; ?>" <?php selected( (int)$edit->staff_id === (int)$st->id ); ?>><?php echo esc_html($st->display_name); ?></option>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <option value="">Bitte zuerst Service wählen…</option>
-                                    <?php endif; ?>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="va-field"><label for="notes">Notizen</label><textarea name="notes" id="notes" rows="3"><?php echo esc_textarea($edit->notes ?? ''); ?></textarea></div>
-                        <div class="va-field">
-                            <label for="status">Status</label>
-                            <select name="status" id="status">
-                                <?php $st = $edit->status ?? 'pending'; ?>
-                                <option value="pending" <?php selected($st==='pending'); ?>>ausstehend</option>
-                                <option value="confirmed" <?php selected($st==='confirmed'); ?>>bestätigt</option>
-                                <option value="cancelled" <?php selected($st==='cancelled'); ?>>abgesagt</option>
-                                <option value="done" <?php selected($st==='done'); ?>>abgeschlossen</option>
+                        <div><label for="modal_staff_id">Mitarbeiter</label>
+                            <select name="staff_id" id="modal_staff_id" disabled>
+                                <option value="">Bitte zuerst Service wählen…</option>
                             </select>
                         </div>
-                        <div class="va-actions"><button class="button button-primary" type="submit"><?php echo $edit ? 'Speichern' : 'Termin speichern'; ?></button></div>
-                    </form>
-                </div>
-
-                <div class="va-card">
-                    <h2>Letzte Termine</h2>
-                    <table class="widefat fixed striped">
-                        <thead><tr><th>Start</th><th>Kunde</th><th>Service</th><th>Mitarbeiter</th><th>Status</th><th>Aktionen</th></tr></thead>
-                        <tbody>
-                        <?php if ( $rows ) : foreach ( $rows as $r ) : ?>
-                            <tr>
-                                <td><?php echo esc_html( date_i18n('d.m.Y H:i', strtotime($r->starts_at)) ); ?></td>
-                                <td><?php echo esc_html($r->customer_name); ?></td>
-                                <td><?php echo esc_html($r->service_name ?: ('#'.$r->service_id)); ?></td>
-                                <td><?php echo esc_html($r->staff_name ?: '-'); ?></td>
-                                <td><?php echo esc_html($r->status); ?></td>
-                                <td class="va-actions-inline">
-                                    <a class="button button-small" href="<?php echo esc_url( admin_url('admin.php?page=valcode-appoint-appointments&edit='.(int)$r->id) ); ?>">Bearbeiten</a>
-                                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" onsubmit="return confirm('Termin wirklich löschen?');" style="display:inline">
-                                        <?php wp_nonce_field( 'valcode_delete_appointment', '_va' ); ?>
-                                        <input type="hidden" name="action" value="valcode_delete_appointment"/>
-                                        <input type="hidden" name="id" value="<?php echo (int)$r->id; ?>"/>
-                                        <button class="button button-small button-link-delete">Löschen</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <?php endforeach; else: ?>
-                            <tr><td colspan="6">Noch keine Termine vorhanden.</td></tr>
-                        <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                    </div>
+                    <div class="va-field"><label for="modal_notes">Notizen</label><textarea name="notes" id="modal_notes" rows="3"></textarea></div>
+                    <div class="va-field">
+                        <label for="modal_status">Status</label>
+                        <select name="status" id="modal_status">
+                            <option value="pending">ausstehend</option>
+                            <option value="confirmed">bestätigt</option>
+                            <option value="cancelled">abgesagt</option>
+                            <option value="done">abgeschlossen</option>
+                        </select>
+                    </div>
+                    <div class="va-actions">
+                        <button class="button button-primary" type="submit">Termin speichern</button>
+                        <button class="button" type="button" id="va-modal-cancel">Abbrechen</button>
+                    </div>
+                </form>
             </div>
         </div>
+
+        <script>
+        // Store data for modal
+        window.ValcodeAppointData = {
+            services: <?php echo json_encode($services); ?>,
+            staff: <?php echo json_encode($staff); ?>,
+            appointments: <?php echo json_encode($rows); ?>,
+            ajaxUrl: '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>',
+            nonce: '<?php echo wp_create_nonce('valcode_appoint_nonce'); ?>'
+        };
+        </script>
         <?php
     }
 
@@ -873,28 +889,132 @@ class Valcode_Appoint {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_delete_appointment', '_va' );
         global $wpdb; $wpdb->delete( $this->tables['appointments'], [ 'id' => absint($_POST['id'] ?? 0) ] );
-        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-appointments&deleted=1') ); exit;
+
+        $redirect_to_calendar = isset($_POST['redirect_to_calendar']) && $_POST['redirect_to_calendar'];
+        $redirect_url = $redirect_to_calendar
+            ? admin_url('admin.php?page=valcode-appoint-calendar&deleted=1')
+            : admin_url('admin.php?page=valcode-appoint-appointments&deleted=1');
+
+        wp_safe_redirect( $redirect_url ); exit;
     }
 
     public function render_calendar() {
-        if ( ! current_user_can('manage_options') ) return; ?>
+        if ( ! current_user_can('manage_options') ) return;
+        global $wpdb;
+
+        $staff = $wpdb->get_results( "SELECT id, display_name FROM {$this->tables['staff']} WHERE active=1 ORDER BY display_name" );
+
+        // Worker filter
+        $filter_staff_id = isset($_GET['filter_staff']) ? absint($_GET['filter_staff']) : 0;
+        ?>
         <div class="wrap va-wrap">
             <h1 class="wp-heading-inline">Kalender</h1>
             <hr class="wp-header-end"/>
+
+            <div class="va-card" style="margin-bottom: 20px;">
+                <form method="get" action="" class="va-filter-form">
+                    <input type="hidden" name="page" value="valcode-appoint-calendar"/>
+                    <div class="va-filter-row">
+                        <div class="va-filter-field">
+                            <label for="filter_staff">Mitarbeiter filtern</label>
+                            <select name="filter_staff" id="filter_staff_calendar" data-calendar-filter>
+                                <option value="">Alle Mitarbeiter</option>
+                                <?php foreach ($staff as $st): ?>
+                                    <option value="<?php echo (int)$st->id; ?>" <?php selected($filter_staff_id, (int)$st->id); ?>>
+                                        <?php echo esc_html($st->display_name); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <?php if ($filter_staff_id): ?>
+                            <a href="<?php echo esc_url( admin_url('admin.php?page=valcode-appoint-calendar') ); ?>" class="button">Filter zurücksetzen</a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+            </div>
+
             <div class="va-card">
                 <div id="va-calendar"></div>
             </div>
-            <p class="description">Klicke auf einen Event, um ihn in der Terminverwaltung zu bearbeiten.</p>
+            <p class="description">Klicke auf einen Termin, um die Details anzuzeigen und zu bearbeiten.</p>
         </div>
+
+        <!-- Modal for Event Details/Edit -->
+        <div id="va-calendar-event-modal" class="va-modal" style="display: none;">
+            <div class="va-modal-content">
+                <div class="va-modal-header">
+                    <h2>Termin Details</h2>
+                    <button class="va-modal-close" onclick="closeCalendarEventModal()">&times;</button>
+                </div>
+                <div class="va-modal-body" style="padding: 24px;">
+                    <div id="va-event-details-loading" style="text-align: center; padding: 20px;">
+                        Lade Termin...
+                    </div>
+                    <div id="va-event-details-content" style="display: none;">
+                        <div class="va-detail-grid">
+                            <div class="va-detail-row">
+                                <strong>Kunde:</strong>
+                                <span id="event-customer-name"></span>
+                            </div>
+                            <div class="va-detail-row">
+                                <strong>E-Mail:</strong>
+                                <span id="event-customer-email"></span>
+                            </div>
+                            <div class="va-detail-row">
+                                <strong>Service:</strong>
+                                <span id="event-service-name"></span>
+                            </div>
+                            <div class="va-detail-row">
+                                <strong>Mitarbeiter:</strong>
+                                <span id="event-staff-name"></span>
+                            </div>
+                            <div class="va-detail-row">
+                                <strong>Start:</strong>
+                                <span id="event-starts-at"></span>
+                            </div>
+                            <div class="va-detail-row">
+                                <strong>Status:</strong>
+                                <span id="event-status"></span>
+                            </div>
+                            <div class="va-detail-row" id="event-notes-row" style="display: none;">
+                                <strong>Notizen:</strong>
+                                <span id="event-notes"></span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px;">
+                            <a href="#" id="event-edit-link" class="button button-primary">Bearbeiten</a>
+                            <button class="button" onclick="closeCalendarEventModal()">Schließen</button>
+                            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" onsubmit="return confirm('Termin wirklich löschen?');" style="display:inline; margin-left: auto;">
+                                <?php wp_nonce_field( 'valcode_delete_appointment', '_va' ); ?>
+                                <input type="hidden" name="action" value="valcode_delete_appointment"/>
+                                <input type="hidden" name="id" id="event-delete-id" value=""/>
+                                <input type="hidden" name="redirect_to_calendar" value="1"/>
+                                <button class="button button-link-delete">Löschen</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (!window.FullCalendar) return;
             var el = document.getElementById('va-calendar');
+            var filterStaffId = <?php echo $filter_staff_id ? (int)$filter_staff_id : 0; ?>;
+
             var calendar = new FullCalendar.Calendar(el, {
                 initialView: 'dayGridMonth',
                 height: 'auto',
                 locale: 'de',
                 nowIndicator: true,
+                buttonText: {
+                    today: 'Heute',
+                    month: 'Monat',
+                    week: 'Woche',
+                    day: 'Tag',
+                    list: 'Liste'
+                },
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -902,18 +1022,133 @@ class Valcode_Appoint {
                 },
                 events: function(fetchInfo, success, failure){
                     var url = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>?action=valcode_get_events&_wpnonce=<?php echo wp_create_nonce('valcode_appoint_nonce'); ?>&start=' + encodeURIComponent(fetchInfo.startStr) + '&end=' + encodeURIComponent(fetchInfo.endStr);
+                    if (filterStaffId) {
+                        url += '&filter_staff=' + filterStaffId;
+                    }
                     fetch(url, { credentials: 'same-origin' }).then(r=>r.json()).then(function(res){
                         if(res && res.success && res.data && res.data.events){ success(res.data.events); } else { success([]); }
                     }).catch(failure);
                 },
                 eventClick: function(info){
+                    info.jsEvent.preventDefault();
                     var id = info.event.id;
                     if(id){
-                        window.location = '<?php echo esc_js( admin_url('admin.php?page=valcode-appoint-appointments&edit=') ); ?>' + id;
+                        openCalendarEventModal(id);
                     }
                 }
             });
             calendar.render();
+
+            // Handle filter change
+            var filterSelect = document.getElementById('filter_staff_calendar');
+            if (filterSelect) {
+                filterSelect.addEventListener('change', function() {
+                    filterStaffId = parseInt(this.value) || 0;
+                    calendar.refetchEvents();
+                });
+            }
+
+            // Modal functions for calendar events
+            window.openCalendarEventModal = function(appointmentId) {
+                var modal = document.getElementById('va-calendar-event-modal');
+                var loading = document.getElementById('va-event-details-loading');
+                var content = document.getElementById('va-event-details-content');
+
+                modal.style.display = 'block';
+                loading.style.display = 'block';
+                content.style.display = 'none';
+                document.body.style.overflow = 'hidden';
+
+                // Fetch appointment details
+                fetch('<?php echo esc_js( admin_url('admin-ajax.php') ); ?>?action=valcode_get_appointment&nonce=<?php echo wp_create_nonce('valcode_appoint_nonce'); ?>&id=' + appointmentId)
+                    .then(r => r.json())
+                    .then(function(res) {
+                        if (res && res.success && res.data) {
+                            displayEventDetails(res.data);
+                        } else {
+                            alert('Fehler beim Laden des Termins');
+                            closeCalendarEventModal();
+                        }
+                    })
+                    .catch(function() {
+                        alert('Fehler beim Laden des Termins');
+                        closeCalendarEventModal();
+                    });
+            };
+
+            window.closeCalendarEventModal = function() {
+                var modal = document.getElementById('va-calendar-event-modal');
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            };
+
+            function displayEventDetails(data) {
+                var loading = document.getElementById('va-event-details-loading');
+                var content = document.getElementById('va-event-details-content');
+
+                // Populate details
+                document.getElementById('event-customer-name').textContent = data.customer_name || '-';
+                document.getElementById('event-customer-email').textContent = data.customer_email || '-';
+                document.getElementById('event-service-name').textContent = data.service_name || 'Service #' + data.service_id;
+                document.getElementById('event-staff-name').textContent = data.staff_name || '-';
+
+                // Format date
+                if (data.starts_at) {
+                    var dt = new Date(data.starts_at);
+                    var formatted = dt.toLocaleDateString('de-DE', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    document.getElementById('event-starts-at').textContent = formatted;
+                }
+
+                // Status with badge
+                var statusSpan = document.getElementById('event-status');
+                var statusText = data.status || 'pending';
+                var statusLabels = {
+                    'pending': 'ausstehend',
+                    'confirmed': 'bestätigt',
+                    'cancelled': 'abgesagt',
+                    'done': 'abgeschlossen'
+                };
+                statusSpan.innerHTML = '<span class="va-status va-status-' + statusText + '">' + (statusLabels[statusText] || statusText) + '</span>';
+
+                // Notes
+                var notesRow = document.getElementById('event-notes-row');
+                if (data.notes && data.notes.trim()) {
+                    document.getElementById('event-notes').textContent = data.notes;
+                    notesRow.style.display = 'grid';
+                } else {
+                    notesRow.style.display = 'none';
+                }
+
+                // Edit link
+                document.getElementById('event-edit-link').href = '<?php echo esc_js( admin_url('admin.php?page=valcode-appoint-appointments&edit=') ); ?>' + data.id;
+                document.getElementById('event-delete-id').value = data.id;
+
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            }
+
+            // Close modal on outside click
+            document.getElementById('va-calendar-event-modal').addEventListener('click', function(e) {
+                if (e.target.id === 'va-calendar-event-modal') {
+                    closeCalendarEventModal();
+                }
+            });
+
+            // Close modal on ESC key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    var modal = document.getElementById('va-calendar-event-modal');
+                    if (modal.style.display === 'block') {
+                        closeCalendarEventModal();
+                    }
+                }
+            });
         });
         </script>
         <?php
@@ -929,11 +1164,19 @@ class Valcode_Appoint {
         global $wpdb;
         $start = isset($_GET['start']) ? sanitize_text_field($_GET['start']) : '';
         $end   = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : '';
-        $where = '';
+        $filter_staff_id = isset($_GET['filter_staff']) ? absint($_GET['filter_staff']) : 0;
+
+        $where_parts = [];
         if ($start && $end) {
-            $where = $wpdb->prepare("WHERE starts_at BETWEEN %s AND %s", $start, $end);
+            $where_parts[] = $wpdb->prepare("starts_at BETWEEN %s AND %s", $start, $end);
         }
-        $rows = $wpdb->get_results( "SELECT id, customer_name, starts_at, ends_at, status FROM {$this->tables['appointments']} $where ORDER BY starts_at" );
+        if ($filter_staff_id) {
+            $where_parts[] = $wpdb->prepare("staff_id = %d", $filter_staff_id);
+        }
+
+        $where = $where_parts ? 'WHERE ' . implode(' AND ', $where_parts) : '';
+
+        $rows = $wpdb->get_results( "SELECT id, customer_name, starts_at, ends_at, status, staff_id FROM {$this->tables['appointments']} $where ORDER BY starts_at" );
         $events = [];
         foreach ($rows as $r) {
             $title = $r->customer_name;
@@ -956,6 +1199,33 @@ class Valcode_Appoint {
             ];
         }
         wp_send_json_success([ 'events' => $events ]);
+    }
+
+    public function ajax_get_appointment() {
+        if ( ! current_user_can('manage_options') ) wp_send_json_error(['msg'=>'forbidden'], 403);
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+
+        global $wpdb;
+        $id = isset($_GET['id']) ? absint($_GET['id']) : 0;
+
+        if (!$id) {
+            wp_send_json_error(['msg'=>'Invalid ID'], 400);
+        }
+
+        $appointment = $wpdb->get_row( $wpdb->prepare(
+            "SELECT a.*, s.name AS service_name, st.display_name AS staff_name
+             FROM {$this->tables['appointments']} a
+             LEFT JOIN {$this->tables['services']} s ON s.id=a.service_id
+             LEFT JOIN {$this->tables['staff']} st ON st.id=a.staff_id
+             WHERE a.id=%d",
+            $id
+        ), ARRAY_A );
+
+        if (!$appointment) {
+            wp_send_json_error(['msg'=>'Appointment not found'], 404);
+        }
+
+        wp_send_json_success($appointment);
     }
 
     public function render_availability() {
