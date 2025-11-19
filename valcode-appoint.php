@@ -347,7 +347,92 @@ class Valcode_Appoint {
     }
 
     public function render_dashboard() {
-        echo '<div class="wrap"><h1>Valcode Appoint</h1><p>Verwalte Services, Mitarbeiter, Termine, Kalender, Verfügbarkeit & Design.</p><p>Frontend: <code>[valcode_appoint]</code></p></div>';
+        global $wpdb;
+        $stats = [
+            'services' => $wpdb->get_var("SELECT COUNT(*) FROM {$this->tables['services']} WHERE active=1"),
+            'staff' => $wpdb->get_var("SELECT COUNT(*) FROM {$this->tables['staff']} WHERE active=1"),
+            'appointments' => $wpdb->get_var("SELECT COUNT(*) FROM {$this->tables['appointments']} WHERE status='confirmed'"),
+            'customers' => $wpdb->get_var("SELECT COUNT(*) FROM {$this->tables['customers']}"),
+        ];
+        ?>
+        <div class="wrap va-wrap">
+            <h1 class="wp-heading-inline">Valcode Appoint</h1>
+            <hr class="wp-header-end"/>
+
+            <div class="va-card" style="margin-bottom: 20px;">
+                <p style="margin: 10px 0 0 0;"><strong>Frontend Shortcode:</strong> <code>[valcode_appoint]</code></p>
+                <p style="margin: 10px 0 0 0;"><strong>Mitarbeiter Portal:</strong> <code>[valcode_staff_portal]</code></p>
+            </div>
+
+            <div class="va-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div class="va-card" style="text-align: center; padding: 30px 20px;">
+                    <span class="dashicons dashicons-products" style="font-size: 48px; width: 48px; height: 48px; color: #2271b1;"></span>
+                    <h3 style="margin: 15px 0 5px 0; font-size: 32px; font-weight: 600;"><?php echo esc_html($stats['services']); ?></h3>
+                    <p style="margin: 0; color: #646970;">Services</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-services'); ?>" class="button" style="margin-top: 15px;">Verwalten</a>
+                </div>
+
+                <div class="va-card" style="text-align: center; padding: 30px 20px;">
+                    <span class="dashicons dashicons-groups" style="font-size: 48px; width: 48px; height: 48px; color: #2271b1;"></span>
+                    <h3 style="margin: 15px 0 5px 0; font-size: 32px; font-weight: 600;"><?php echo esc_html($stats['staff']); ?></h3>
+                    <p style="margin: 0; color: #646970;">Mitarbeiter</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-staff'); ?>" class="button" style="margin-top: 15px;">Verwalten</a>
+                </div>
+
+                <div class="va-card" style="text-align: center; padding: 30px 20px;">
+                    <span class="dashicons dashicons-calendar-alt" style="font-size: 48px; width: 48px; height: 48px; color: #2271b1;"></span>
+                    <h3 style="margin: 15px 0 5px 0; font-size: 32px; font-weight: 600;"><?php echo esc_html($stats['appointments']); ?></h3>
+                    <p style="margin: 0; color: #646970;">Termine</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-appointments'); ?>" class="button" style="margin-top: 15px;">Verwalten</a>
+                </div>
+
+                <div class="va-card" style="text-align: center; padding: 30px 20px;">
+                    <span class="dashicons dashicons-admin-users" style="font-size: 48px; width: 48px; height: 48px; color: #2271b1;"></span>
+                    <h3 style="margin: 15px 0 5px 0; font-size: 32px; font-weight: 600;"><?php echo esc_html($stats['customers']); ?></h3>
+                    <p style="margin: 0; color: #646970;">Kunden</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-customers'); ?>" class="button" style="margin-top: 15px;">Verwalten</a>
+                </div>
+            </div>
+
+            <div class="va-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div class="va-card" style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-calendar" style="color: #2271b1;"></span>
+                        Kalender
+                    </h3>
+                    <p style="margin: 0 0 15px 0; color: #646970;">Übersicht aller Termine</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-calendar'); ?>" class="button">Öffnen</a>
+                </div>
+
+                <div class="va-card" style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-clock" style="color: #2271b1;"></span>
+                        Verfügbarkeit
+                    </h3>
+                    <p style="margin: 0 0 15px 0; color: #646970;">Arbeitszeiten & Blockers</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-availability'); ?>" class="button">Verwalten</a>
+                </div>
+
+                <div class="va-card" style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-admin-appearance" style="color: #2271b1;"></span>
+                        Design
+                    </h3>
+                    <p style="margin: 0 0 15px 0; color: #646970;">Farben & Styling</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-design'); ?>" class="button">Anpassen</a>
+                </div>
+
+                <div class="va-card" style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px;">
+                        <span class="dashicons dashicons-admin-settings" style="color: #2271b1;"></span>
+                        Einstellungen
+                    </h3>
+                    <p style="margin: 0 0 15px 0; color: #646970;">SMTP & Allgemeines</p>
+                    <a href="<?php echo admin_url('admin.php?page=valcode-appoint-settings'); ?>" class="button">Konfigurieren</a>
+                </div>
+            </div>
+        </div>
+        <?php
     }
 
     public function render_services() {
@@ -575,7 +660,7 @@ class Valcode_Appoint {
             <hr class="wp-header-end"/>
 
             <?php if(isset($_GET['imported'])): ?>
-                <div class="notice notice-success is-dismissible"><p>✅ <?php echo absint($_GET['imported']); ?> Kunden erfolgreich importiert!</p></div>
+                <div class="notice notice-success is-dismissible"><p><span class="dashicons dashicons-yes"></span> <?php echo absint($_GET['imported']); ?> Kunden erfolgreich importiert!</p></div>
             <?php endif; ?>
 
             <div class="va-grid">
@@ -968,9 +1053,6 @@ class Valcode_Appoint {
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <?php if ($filter_staff_id): ?>
-                            <a href="<?php echo esc_url( admin_url('admin.php?page=valcode-appoint-calendar') ); ?>" class="button">Filter zurücksetzen</a>
-                        <?php endif; ?>
                     </div>
                 </form>
             </div>
@@ -1314,9 +1396,6 @@ class Valcode_Appoint {
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <?php if($filter_staff_id): ?>
-                        <a href="<?php echo esc_url(admin_url('admin.php?page=valcode-appoint-availability')); ?>" class="button">Filter zurücksetzen</a>
-                    <?php endif; ?>
                 </form>
             </div>
 
@@ -1495,7 +1574,7 @@ class Valcode_Appoint {
             <h1 class="wp-heading-inline">Design</h1>
             <hr class="wp-header-end"/>
             <?php if(isset($_GET['saved'])): ?>
-                <div class="notice notice-success is-dismissible"><p>✅ Design gespeichert!</p></div>
+                <div class="notice notice-success is-dismissible"><p><span class="dashicons dashicons-yes"></span> Design gespeichert!</p></div>
             <?php endif; ?>
             <div class="va-card">
                 <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" class="va-form">
@@ -1522,7 +1601,6 @@ class Valcode_Appoint {
 
                     <div class="va-actions"><button class="button button-primary">Design speichern</button></div>
                 </form>
-                <p class="description">Diese Einstellungen beeinflussen das Frontend-Formular <code>[valcode_appoint]</code>.</p>
             </div>
         </div>
         <?php
@@ -1622,7 +1700,7 @@ class Valcode_Appoint {
                     </div>
                     
                     <?php if(isset($_GET['saved'])): ?>
-                        <p class="va-msg ok">✅ Einstellungen gespeichert!</p>
+                        <p class="va-msg ok"><span class="dashicons dashicons-yes"></span> Einstellungen gespeichert!</p>
                     <?php endif; ?>
                 </form>
             </div>
