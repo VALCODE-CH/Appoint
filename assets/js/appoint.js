@@ -372,9 +372,18 @@
                         refreshNext2();
                         loadSlots(dateStr);
                     });
-                    // Set service and worker for availability checking
-                    calendar.setService(service.value, worker.value);
+                } else {
+                    // Reset calendar when returning to step 2 with different service/worker
+                    calendar.selectedDate = null;
+                    selectedDate = null;
+                    selectedSlot = null;
+                    startHidden.value = '';
+                    slotsContainer.innerHTML = '';
                 }
+                // Always update service and worker for availability checking
+                calendar.setService(service.value, worker.value);
+                refreshNext2();
+                refreshNext3();
             });
         }
 
