@@ -59,6 +59,7 @@ class Valcode_Appoint {
 
         add_shortcode( 'valcode_appoint', [ $this, 'shortcode_form' ] );
         add_shortcode( 'valcode_password_reset', [ $this, 'shortcode_password_reset' ] );
+        add_shortcode( 'valcode_staff_portal', [ $this, 'shortcode_staff_portal' ] );
 
         // AJAX
         add_action( 'wp_ajax_valcode_get_workers', [ $this, 'ajax_get_workers' ] );
@@ -83,6 +84,20 @@ class Valcode_Appoint {
         add_action( 'wp_ajax_nopriv_valcode_customer_reset_request', [ $this, 'ajax_customer_reset_request' ] );
         add_action( 'wp_ajax_valcode_customer_reset_password', [ $this, 'ajax_customer_reset_password' ] );
         add_action( 'wp_ajax_nopriv_valcode_customer_reset_password', [ $this, 'ajax_customer_reset_password' ] );
+
+        // Staff Authentication
+        add_action( 'wp_ajax_valcode_staff_login', [ $this, 'ajax_staff_login' ] );
+        add_action( 'wp_ajax_nopriv_valcode_staff_login', [ $this, 'ajax_staff_login' ] );
+        add_action( 'wp_ajax_valcode_staff_logout', [ $this, 'ajax_staff_logout' ] );
+        add_action( 'wp_ajax_nopriv_valcode_staff_logout', [ $this, 'ajax_staff_logout' ] );
+        add_action( 'wp_ajax_valcode_staff_check', [ $this, 'ajax_staff_check' ] );
+        add_action( 'wp_ajax_nopriv_valcode_staff_check', [ $this, 'ajax_staff_check' ] );
+        add_action( 'wp_ajax_valcode_staff_reset_request', [ $this, 'ajax_staff_reset_request' ] );
+        add_action( 'wp_ajax_nopriv_valcode_staff_reset_request', [ $this, 'ajax_staff_reset_request' ] );
+        add_action( 'wp_ajax_valcode_staff_reset_password', [ $this, 'ajax_staff_reset_password' ] );
+        add_action( 'wp_ajax_nopriv_valcode_staff_reset_password', [ $this, 'ajax_staff_reset_password' ] );
+        add_action( 'wp_ajax_valcode_staff_get_appointments', [ $this, 'ajax_staff_get_appointments' ] );
+        add_action( 'wp_ajax_nopriv_valcode_staff_get_appointments', [ $this, 'ajax_staff_get_appointments' ] );
 
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_public' ] );
@@ -162,10 +177,17 @@ class Valcode_Appoint {
             phone VARCHAR(64) NULL,
             services JSON NULL,
             active TINYINT(1) NOT NULL DEFAULT 1,
+            password_hash VARCHAR(255) NULL,
+            reset_token VARCHAR(64) NULL,
+            reset_expires DATETIME NULL,
+            last_login DATETIME NULL,
+            can_view_all_appointments TINYINT(1) NOT NULL DEFAULT 0,
+            can_create_appointments TINYINT(1) NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NULL,
             PRIMARY KEY (id),
-            KEY active (active)
+            KEY active (active),
+            UNIQUE KEY email (email)
         ) $charset_collate;";
 
         $sql_appts = "CREATE TABLE {$this->tables['appointments']} (
@@ -445,6 +467,11 @@ class Valcode_Appoint {
                             <div><label for="phone">Telefon</label><input name="phone" id="phone" type="text" value="<?php echo esc_attr($edit->phone ?? ''); ?>"/></div>
                         </div>
                         <div class="va-field">
+                            <label for="password">Passwort <?php echo $edit ? '(leer lassen um nicht zu ändern)' : ''; ?></label>
+                            <input name="password" id="password" type="password" <?php echo $edit ? '' : 'required'; ?> minlength="6"/>
+                            <?php if(!$edit): ?><p class="description">Mindestens 6 Zeichen</p><?php endif; ?>
+                        </div>
+                        <div class="va-field">
                             <label for="services">Bietet Services an</label>
                             <select name="services[]" id="services" multiple size="6" style="min-width:260px;">
                                 <?php foreach ($services as $srv): ?>
@@ -456,6 +483,11 @@ class Valcode_Appoint {
                             <p class="description">Mehrfachauswahl mit Strg/Cmd.</p>
                         </div>
                         <div class="va-field"><label class="va-check"><input type="checkbox" name="active" value="1" <?php checked( $edit ? (int)$edit->active : 1, 1 ); ?>/> Aktiv</label></div>
+                        <div class="va-field">
+                            <label>Berechtigungen</label>
+                            <label class="va-check"><input type="checkbox" name="can_view_all_appointments" value="1" <?php checked( $edit ? (int)($edit->can_view_all_appointments ?? 0) : 0, 1 ); ?>/> Darf alle Termine sehen</label>
+                            <label class="va-check"><input type="checkbox" name="can_create_appointments" value="1" <?php checked( $edit ? (int)($edit->can_create_appointments ?? 0) : 0, 1 ); ?>/> Darf Termine erstellen</label>
+                        </div>
                         <div class="va-actions"><button class="button button-primary" type="submit"><?php echo $edit ? 'Speichern' : 'Anlegen'; ?></button></div>
                     </form>
                 </div>
@@ -497,14 +529,24 @@ class Valcode_Appoint {
         global $wpdb; $table = $this->tables['staff'];
         $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
         $services = array_map('absint', $_POST['services'] ?? []);
+        $password = $_POST['password'] ?? '';
+
         $data = [
             'display_name' => sanitize_text_field( $_POST['display_name'] ?? '' ),
             'email' => sanitize_email( $_POST['email'] ?? '' ),
             'phone' => sanitize_text_field( $_POST['phone'] ?? '' ),
             'services' => wp_json_encode( array_values( array_filter($services) ) ),
             'active' => isset($_POST['active']) ? 1 : 0,
+            'can_view_all_appointments' => isset($_POST['can_view_all_appointments']) ? 1 : 0,
+            'can_create_appointments' => isset($_POST['can_create_appointments']) ? 1 : 0,
             'updated_at' => current_time('mysql')
         ];
+
+        // Handle password
+        if ( !empty($password) ) {
+            $data['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
+        }
+
         if ( $id ) $wpdb->update( $table, $data, [ 'id' => $id ] );
         else { $data['created_at'] = current_time('mysql'); $wpdb->insert( $table, $data ); }
         wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-staff') ); exit;
@@ -1711,16 +1753,21 @@ class Valcode_Appoint {
     public function ajax_get_workers() {
         check_ajax_referer('valcode_appoint_nonce', 'nonce');
         global $wpdb;
-        $service_id = isset($_GET['service_id']) ? absint($_GET['service_id']) : 0;
+        $service_id = isset($_POST['service_id']) ? absint($_POST['service_id']) : (isset($_GET['service_id']) ? absint($_GET['service_id']) : 0);
+
+        // Get all active services
+        $services = $wpdb->get_results( "SELECT id, name, duration_minutes, price FROM {$this->tables['services']} WHERE active=1 ORDER BY name" );
+
+        // Get workers
         $rows = $wpdb->get_results( "SELECT id, display_name, services, active FROM {$this->tables['staff']} WHERE active=1 ORDER BY display_name" );
         $out = [];
         foreach ($rows as $r) {
             $list = $r->services ? json_decode($r->services, true) : [];
             if ( ! is_array($list) ) $list = [];
             if ( $service_id && ! in_array( $service_id, $list, true ) ) continue;
-            $out[] = [ 'id' => (int)$r->id, 'name' => $r->display_name ];
+            $out[] = [ 'id' => (int)$r->id, 'display_name' => $r->display_name ];
         }
-        wp_send_json_success( [ 'workers' => $out ] );
+        wp_send_json_success( [ 'workers' => $out, 'services' => $services ] );
     }
 
     public function ajax_create_appointment() {
@@ -2205,6 +2252,225 @@ class Valcode_Appoint {
         } else {
             wp_send_json_success(['logged_in' => false]);
         }
+    }
+
+    // Staff Authentication Functions
+    public function ajax_staff_login() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $email = sanitize_email( $_POST['email'] ?? '' );
+        $password = $_POST['password'] ?? '';
+
+        if ( ! $email || ! $password ) {
+            wp_send_json_error(['message'=>'E-Mail und Passwort erforderlich.']); return;
+        }
+
+        $staff = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['staff']} WHERE email=%s AND active=1",
+            $email
+        ));
+
+        if ( ! $staff || ! $staff->password_hash ) {
+            wp_send_json_error(['message'=>'Ungültige Anmeldedaten.']); return;
+        }
+
+        if ( ! password_verify($password, $staff->password_hash) ) {
+            wp_send_json_error(['message'=>'Ungültige Anmeldedaten.']); return;
+        }
+
+        // Update last login
+        $wpdb->update( $this->tables['staff'],
+            ['last_login' => current_time('mysql')],
+            ['id' => $staff->id]
+        );
+
+        // Set session
+        if ( ! session_id() ) session_start();
+        $_SESSION['valcode_staff_id'] = $staff->id;
+        $_SESSION['valcode_staff_email'] = $staff->email;
+        $_SESSION['valcode_staff_name'] = $staff->display_name;
+
+        wp_send_json_success([
+            'message'=>'Erfolgreich angemeldet!',
+            'staff_id' => $staff->id,
+            'staff_name' => $staff->display_name,
+            'staff_email' => $staff->email
+        ]);
+    }
+
+    public function ajax_staff_logout() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+
+        if ( ! session_id() ) session_start();
+        unset($_SESSION['valcode_staff_id']);
+        unset($_SESSION['valcode_staff_email']);
+        unset($_SESSION['valcode_staff_name']);
+
+        wp_send_json_success(['message'=>'Erfolgreich abgemeldet.']);
+    }
+
+    public function ajax_staff_check() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+
+        if ( ! session_id() ) session_start();
+
+        if ( isset($_SESSION['valcode_staff_id']) ) {
+            wp_send_json_success([
+                'logged_in' => true,
+                'staff_id' => $_SESSION['valcode_staff_id'],
+                'staff_name' => $_SESSION['valcode_staff_name'] ?? '',
+                'staff_email' => $_SESSION['valcode_staff_email'] ?? ''
+            ]);
+        } else {
+            wp_send_json_success(['logged_in' => false]);
+        }
+    }
+
+    public function ajax_staff_reset_request() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $email = sanitize_email( $_POST['email'] ?? '' );
+        if ( ! $email ) {
+            wp_send_json_error(['message'=>'E-Mail erforderlich.']); return;
+        }
+
+        $staff = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['staff']} WHERE email=%s AND active=1",
+            $email
+        ));
+
+        if ( ! $staff ) {
+            wp_send_json_error(['message'=>'Keine Mitarbeiter mit dieser E-Mail gefunden.']); return;
+        }
+
+        // Generate reset token
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+        $wpdb->update(
+            $this->tables['staff'],
+            [
+                'reset_token' => $token,
+                'reset_expires' => $expires
+            ],
+            ['id' => $staff->id]
+        );
+
+        // Send email
+        $reset_link = add_query_arg([
+            'action' => 'staff_reset',
+            'token' => $token
+        ], home_url('/mitarbeiter-passwort-zuruecksetzen/'));
+
+        $subject = 'Passwort zurücksetzen';
+        $message = "Hallo {$staff->display_name},\n\n";
+        $message .= "Sie haben eine Passwort-Zurücksetzung angefordert.\n\n";
+        $message .= "Klicken Sie auf folgenden Link, um Ihr Passwort zurückzusetzen:\n";
+        $message .= $reset_link . "\n\n";
+        $message .= "Dieser Link ist 1 Stunde gültig.\n\n";
+        $message .= "Falls Sie diese E-Mail nicht angefordert haben, ignorieren Sie sie einfach.";
+
+        wp_mail($staff->email, $subject, $message);
+
+        wp_send_json_success(['message'=>'Passwort-Zurücksetzungs-Link wurde an Ihre E-Mail gesendet.']);
+    }
+
+    public function ajax_staff_reset_password() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        $token = sanitize_text_field( $_POST['token'] ?? '' );
+        $password = $_POST['password'] ?? '';
+
+        if ( ! $token || ! $password ) {
+            wp_send_json_error(['message'=>'Token und Passwort erforderlich.']); return;
+        }
+
+        if ( strlen($password) < 6 ) {
+            wp_send_json_error(['message'=>'Passwort muss mindestens 6 Zeichen lang sein.']); return;
+        }
+
+        $staff = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['staff']} WHERE reset_token=%s AND reset_expires > NOW()",
+            $token
+        ));
+
+        if ( ! $staff ) {
+            wp_send_json_error(['message'=>'Ungültiger oder abgelaufener Token.']); return;
+        }
+
+        // Update password
+        $wpdb->update(
+            $this->tables['staff'],
+            [
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'reset_token' => null,
+                'reset_expires' => null
+            ],
+            ['id' => $staff->id]
+        );
+
+        wp_send_json_success(['message'=>'Passwort erfolgreich zurückgesetzt. Sie können sich jetzt anmelden.']);
+    }
+
+    public function ajax_staff_get_appointments() {
+        check_ajax_referer('valcode_appoint_nonce', 'nonce');
+        global $wpdb;
+
+        if ( ! session_id() ) session_start();
+
+        if ( ! isset($_SESSION['valcode_staff_id']) ) {
+            wp_send_json_error(['message'=>'Nicht angemeldet.']); return;
+        }
+
+        $staff_id = intval($_SESSION['valcode_staff_id']);
+        $from_date = sanitize_text_field( $_POST['from_date'] ?? date('Y-m-d') );
+        $to_date = sanitize_text_field( $_POST['to_date'] ?? date('Y-m-d', strtotime('+30 days')) );
+
+        // Check if staff can view all appointments
+        $staff = $wpdb->get_row( $wpdb->prepare(
+            "SELECT can_view_all_appointments FROM {$this->tables['staff']} WHERE id = %d",
+            $staff_id
+        ));
+
+        $can_view_all = $staff && $staff->can_view_all_appointments;
+
+        if ( $can_view_all ) {
+            // View all appointments
+            $appointments = $wpdb->get_results( $wpdb->prepare(
+                "SELECT a.*, s.name as service_name, s.duration_minutes, s.price, st.display_name as staff_name
+                 FROM {$this->tables['appointments']} a
+                 LEFT JOIN {$this->tables['services']} s ON a.service_id = s.id
+                 LEFT JOIN {$this->tables['staff']} st ON a.staff_id = st.id
+                 WHERE DATE(a.starts_at) >= %s
+                 AND DATE(a.starts_at) <= %s
+                 ORDER BY a.starts_at ASC",
+                $from_date,
+                $to_date
+            ));
+        } else {
+            // View only own appointments
+            $appointments = $wpdb->get_results( $wpdb->prepare(
+                "SELECT a.*, s.name as service_name, s.duration_minutes, s.price
+                 FROM {$this->tables['appointments']} a
+                 LEFT JOIN {$this->tables['services']} s ON a.service_id = s.id
+                 WHERE a.staff_id = %d
+                 AND DATE(a.starts_at) >= %s
+                 AND DATE(a.starts_at) <= %s
+                 ORDER BY a.starts_at ASC",
+                $staff_id,
+                $from_date,
+                $to_date
+            ));
+        }
+
+        wp_send_json_success([
+            'appointments' => $appointments,
+            'count' => count($appointments),
+            'can_view_all' => $can_view_all
+        ]);
     }
 
     public function shortcode_form( $atts ) {
@@ -2700,6 +2966,612 @@ class Valcode_Appoint {
                     });
                 });
             }
+        })();
+        </script>
+        <?php
+        return ob_get_clean();
+    }
+
+    // Unified Staff Portal Shortcode
+    public function shortcode_staff_portal( $atts ) {
+        if ( ! session_id() ) session_start();
+
+        wp_enqueue_style( 'valcode-appoint-public' );
+        wp_enqueue_script( 'valcode-appoint' );
+
+        // Check for password reset action
+        $token = sanitize_text_field( $_GET['token'] ?? '' );
+        $action = sanitize_text_field( $_GET['action'] ?? '' );
+        $view = sanitize_text_field( $_GET['view'] ?? '' );
+
+        // Password Reset View
+        if($action === 'staff_reset' && $token) {
+            return $this->render_staff_password_reset_form($token);
+        }
+
+        // Password Reset Request View
+        if($view === 'reset') {
+            return $this->render_staff_password_reset_request();
+        }
+
+        // Check if staff is logged in
+        $is_logged_in = isset($_SESSION['valcode_staff_id']);
+
+        if($is_logged_in) {
+            // Dashboard View
+            return $this->render_staff_dashboard();
+        } else {
+            // Login View
+            return $this->render_staff_login();
+        }
+    }
+
+    private function render_staff_login() {
+        $design = get_option('valcode_appoint_design', []);
+        $accent = $design['accent_color'] ?? '#6366f1';
+
+        ob_start(); ?>
+        <div class="va-booking-form">
+            <div class="va-step">
+                <h3 style="margin-bottom: 30px;">Mitarbeiter Login</h3>
+                <form id="va-staff-login-form">
+                    <div class="va-field" style="margin-bottom: 25px;">
+                        <label for="staff-email">E-Mail</label>
+                        <input type="email" id="staff-email" required>
+                    </div>
+                    <div class="va-field" style="margin-bottom: 30px;">
+                        <label for="staff-password">Passwort</label>
+                        <input type="password" id="staff-password" required>
+                    </div>
+                    <div class="va-actions">
+                        <button type="submit" class="va-btn">Anmelden</button>
+                    </div>
+                    <div id="staff-login-result" class="va-msg" style="margin-top: 20px;"></div>
+                </form>
+                <p style="text-align: center; margin-top: 30px;">
+                    <a href="?view=reset" style="color: <?php echo esc_attr($accent); ?>; text-decoration: none; font-weight: 600;">Passwort vergessen?</a>
+                </p>
+            </div>
+        </div>
+        <script>
+        (function(){
+            var form = document.getElementById('va-staff-login-form');
+            if(!form) return;
+
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var email = document.getElementById('staff-email').value;
+                var password = document.getElementById('staff-password').value;
+                var result = document.getElementById('staff-login-result');
+                var btn = form.querySelector('button[type="submit"]');
+
+                btn.disabled = true;
+                btn.textContent = 'Anmelden...';
+                result.textContent = '';
+
+                var fd = new FormData();
+                fd.append('action', 'valcode_staff_login');
+                fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+                fd.append('email', email);
+                fd.append('password', password);
+
+                fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.success){
+                        result.textContent = res.data.message;
+                        result.className = 'va-msg success';
+                        setTimeout(function(){
+                            window.location.href = window.location.pathname;
+                        }, 1000);
+                    } else {
+                        result.textContent = res.data && res.data.message ? res.data.message : 'Anmeldung fehlgeschlagen.';
+                        result.className = 'va-msg err';
+                        btn.disabled = false;
+                        btn.textContent = 'Anmelden';
+                    }
+                })
+                .catch(function(){
+                    result.textContent = 'Fehler bei der Anmeldung.';
+                    result.className = 'va-msg err';
+                    btn.disabled = false;
+                    btn.textContent = 'Anmelden';
+                });
+            });
+        })();
+        </script>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function render_staff_dashboard() {
+        global $wpdb;
+        $staff_id = intval($_SESSION['valcode_staff_id']);
+        $staff_name = $_SESSION['valcode_staff_name'] ?? 'Mitarbeiter';
+
+        // Get staff permissions
+        $staff = $wpdb->get_row( $wpdb->prepare(
+            "SELECT can_view_all_appointments, can_create_appointments FROM {$this->tables['staff']} WHERE id = %d",
+            $staff_id
+        ));
+
+        $can_create = $staff && $staff->can_create_appointments;
+
+        $design = get_option('valcode_appoint_design', []);
+        $gradient_start = $design['accent_gradient_start'] ?? '#667eea';
+        $gradient_end = $design['accent_gradient_end'] ?? '#764ba2';
+
+        ob_start(); ?>
+        <div class="va-booking-form">
+            <div class="va-step">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+                    <h3 style="margin: 0;">Willkommen, <?php echo esc_html($staff_name); ?></h3>
+                    <button id="va-staff-logout" style="padding: 8px 16px; font-size: 13px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Abmelden</button>
+                </div>
+
+                <div style="display: flex; gap: 30px; align-items: end; margin-bottom: 40px; flex-wrap: wrap;">
+                    <div class="va-field" style="margin: 0;">
+                        <label for="filter-from">Von</label>
+                        <input type="date" id="filter-from" value="<?php echo date('Y-m-d'); ?>">
+                    </div>
+                    <div class="va-field" style="margin: 0;">
+                        <label for="filter-to">Bis</label>
+                        <input type="date" id="filter-to" value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
+                    </div>
+                    <div style="margin-left: 30px;">
+                        <button id="load-appointments" class="va-btn">Termine laden</button>
+                    </div>
+                    <?php if($can_create): ?>
+                    <div style="margin-left: auto;">
+                        <button id="toggle-booking-form" class="va-btn" style="background: var(--va-accent, #6366f1);">+ Termin erstellen</button>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if($can_create): ?>
+                <div id="booking-form-container" style="display: none; margin-bottom: 40px; background: #f8f9fa; padding: 40px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; margin-bottom: 35px;">Neuen Termin erstellen</h4>
+                    <form id="staff-create-appointment-form">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-customer-name">Kunde Name</label>
+                                <input type="text" id="new-customer-name" required>
+                            </div>
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-customer-email">Kunde E-Mail</label>
+                                <input type="email" id="new-customer-email" required>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-customer-phone">Kunde Telefon</label>
+                                <input type="text" id="new-customer-phone">
+                            </div>
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-service">Service</label>
+                                <select id="new-service" required>
+                                    <option value="">Bitte wählen...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-bottom: 35px;">
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-staff">Mitarbeiter</label>
+                                <select id="new-staff" required>
+                                    <option value="">Bitte wählen...</option>
+                                </select>
+                            </div>
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-date">Datum</label>
+                                <input type="date" id="new-date" required>
+                            </div>
+                            <div class="va-field" style="margin: 0;">
+                                <label for="new-time">Uhrzeit</label>
+                                <input type="time" id="new-time" required>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 20px; margin-top: 30px;">
+                            <button type="submit" class="va-btn">Termin erstellen</button>
+                            <button type="button" id="cancel-create" class="va-btn" style="background: #6c757d;">Abbrechen</button>
+                        </div>
+                        <div id="create-result" class="va-msg" style="margin-top: 25px;"></div>
+                    </form>
+                </div>
+                <?php endif; ?>
+
+                <div id="appointments-list">
+                    <p style="text-align: center; color: #999; padding: 20px 0;">Lade Termine...</p>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function(){
+            var staffId = <?php echo $staff_id; ?>;
+            var logoutBtn = document.getElementById('va-staff-logout');
+            var loadBtn = document.getElementById('load-appointments');
+            var listDiv = document.getElementById('appointments-list');
+
+            // Logout functionality
+            if(logoutBtn){
+                logoutBtn.addEventListener('click', function(){
+                    var fd = new FormData();
+                    fd.append('action', 'valcode_staff_logout');
+                    fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+
+                    fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
+                        method: 'POST',
+                        body: fd
+                    })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if(res.success){
+                            window.location.href = window.location.pathname;
+                        }
+                    });
+                });
+            }
+
+            // Load appointments
+            function loadAppointments(){
+                var fromDate = document.getElementById('filter-from').value;
+                var toDate = document.getElementById('filter-to').value;
+
+                listDiv.innerHTML = '<p>Lade Termine...</p>';
+
+                var fd = new FormData();
+                fd.append('action', 'valcode_staff_get_appointments');
+                fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+                fd.append('from_date', fromDate);
+                fd.append('to_date', toDate);
+
+                fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.success && res.data.appointments){
+                        var appts = res.data.appointments;
+                        var canViewAll = res.data.can_view_all;
+
+                        if(appts.length === 0){
+                            listDiv.innerHTML = '<p style="text-align: center; color: var(--va-text-muted, #999);">Keine Termine gefunden.</p>';
+                            return;
+                        }
+
+                        var gradStart = '<?php echo esc_js($gradient_start); ?>';
+                        var gradEnd = '<?php echo esc_js($gradient_end); ?>';
+
+                        var html = '<div style="overflow-x: auto; margin-top: 20px;">';
+                        html += '<table style="width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);"><thead><tr style="background: linear-gradient(135deg, ' + gradStart + ' 0%, ' + gradEnd + ' 100%); color: white;">';
+                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Datum</th>';
+                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Zeit</th>';
+                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Kunde</th>';
+                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Service</th>';
+                        if(canViewAll) {
+                            html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Mitarbeiter</th>';
+                        }
+                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Dauer</th>';
+                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Status</th>';
+                        html += '</tr></thead><tbody>';
+
+                        appts.forEach(function(a, idx){
+                            var startDate = new Date(a.starts_at);
+                            var endDate = new Date(a.ends_at);
+                            var rowBg = idx % 2 === 0 ? '#f8f9fa' : 'white';
+                            html += '<tr style="background: ' + rowBg + '; transition: background 0.2s;" onmouseover="this.style.background=\'#e9ecef\'" onmouseout="this.style.background=\'' + rowBg + '\'">';
+                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + startDate.toLocaleDateString('de-DE') + '</td>';
+                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + startDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + ' - ' + endDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + '</td>';
+                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.customer_name || 'N/A') + '<br><small style="color: #6c757d; margin-top: 4px; display: block;">' + (a.customer_email || '') + '</small></td>';
+                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.service_name || 'N/A') + '</td>';
+                            if(canViewAll) {
+                                html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.staff_name || 'N/A') + '</td>';
+                            }
+                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.duration_minutes || 0) + ' Min</td>';
+                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;"><span style="padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; background: ' + (a.status === 'confirmed' ? '#d4edda' : a.status === 'pending' ? '#fff3cd' : '#f8d7da') + '; color: ' + (a.status === 'confirmed' ? '#155724' : a.status === 'pending' ? '#856404' : '#721c24') + ';">' + a.status + '</span></td>';
+                            html += '</tr>';
+                        });
+
+                        html += '</tbody></table></div>';
+                        listDiv.innerHTML = html;
+                    } else {
+                        listDiv.innerHTML = '<p style="text-align: center; color: var(--va-error, #e74c3c);">Fehler beim Laden der Termine.</p>';
+                    }
+                })
+                .catch(function(){
+                    listDiv.innerHTML = '<p>Fehler beim Laden der Termine.</p>';
+                });
+            }
+
+            if(loadBtn){
+                loadBtn.addEventListener('click', loadAppointments);
+            }
+
+            // Toggle booking form
+            var toggleBtn = document.getElementById('toggle-booking-form');
+            var bookingContainer = document.getElementById('booking-form-container');
+            var cancelBtn = document.getElementById('cancel-create');
+
+            if(toggleBtn && bookingContainer){
+                // Load services and staff when opening form
+                toggleBtn.addEventListener('click', function(){
+                    if(bookingContainer.style.display === 'none'){
+                        loadServicesAndStaff();
+                        bookingContainer.style.display = 'block';
+                        toggleBtn.textContent = '- Formular schließen';
+                    } else {
+                        bookingContainer.style.display = 'none';
+                        toggleBtn.textContent = '+ Termin erstellen';
+                    }
+                });
+
+                if(cancelBtn){
+                    cancelBtn.addEventListener('click', function(){
+                        bookingContainer.style.display = 'none';
+                        toggleBtn.textContent = '+ Termin erstellen';
+                        document.getElementById('staff-create-appointment-form').reset();
+                    });
+                }
+            }
+
+            // Load services and staff for create form
+            function loadServicesAndStaff(){
+                var serviceSelect = document.getElementById('new-service');
+                var staffSelect = document.getElementById('new-staff');
+
+                if(!serviceSelect || !staffSelect) return;
+
+                // Load services and staff
+                var fd = new FormData();
+                fd.append('action', 'valcode_get_workers');
+                fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+                fd.append('service_id', '');
+
+                fetch('<?php echo admin_url("admin-ajax.php"); ?>', {method: 'POST', body: fd})
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    console.log('Load response:', res);
+                    if(res.success){
+                        if(res.data.services){
+                            serviceSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+                            res.data.services.forEach(function(s){
+                                serviceSelect.innerHTML += '<option value="' + s.id + '" data-duration="' + s.duration_minutes + '">' + s.name + ' (CHF ' + s.price + ')</option>';
+                            });
+                        }
+                        if(res.data.workers){
+                            staffSelect.innerHTML = '<option value="">Bitte wählen...</option>';
+                            res.data.workers.forEach(function(w){
+                                staffSelect.innerHTML += '<option value="' + w.id + '">' + w.display_name + '</option>';
+                            });
+                        }
+                    }
+                })
+                .catch(function(err){
+                    console.error('Error loading:', err);
+                });
+            }
+
+            // Handle create appointment form
+            var createForm = document.getElementById('staff-create-appointment-form');
+            if(createForm){
+                createForm.addEventListener('submit', function(e){
+                    e.preventDefault();
+
+                    var serviceSelect = document.getElementById('new-service');
+                    var selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+                    var duration = selectedOption.getAttribute('data-duration') || 30;
+
+                    var date = document.getElementById('new-date').value;
+                    var time = document.getElementById('new-time').value;
+                    var startsAt = date + ' ' + time + ':00';
+
+                    var fd = new FormData();
+                    fd.append('action', 'valcode_create_appointment');
+                    fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+                    fd.append('customer_name', document.getElementById('new-customer-name').value);
+                    fd.append('customer_email', document.getElementById('new-customer-email').value);
+                    fd.append('customer_phone', document.getElementById('new-customer-phone').value);
+                    fd.append('service_id', serviceSelect.value);
+                    fd.append('staff_id', document.getElementById('new-staff').value);
+                    fd.append('starts_at', startsAt);
+
+                    var resultDiv = document.getElementById('create-result');
+                    var submitBtn = createForm.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Erstelle...';
+
+                    fetch('<?php echo admin_url("admin-ajax.php"); ?>', {method: 'POST', body: fd})
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if(res.success){
+                            resultDiv.textContent = 'Termin erfolgreich erstellt!';
+                            resultDiv.className = 'va-msg success';
+                            createForm.reset();
+                            setTimeout(function(){
+                                bookingContainer.style.display = 'none';
+                                toggleBtn.textContent = '+ Termin erstellen';
+                                resultDiv.textContent = '';
+                                loadAppointments();
+                            }, 2000);
+                        } else {
+                            resultDiv.textContent = res.data && res.data.message ? res.data.message : 'Fehler beim Erstellen.';
+                            resultDiv.className = 'va-msg err';
+                        }
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Termin erstellen';
+                    })
+                    .catch(function(){
+                        resultDiv.textContent = 'Fehler beim Erstellen.';
+                        resultDiv.className = 'va-msg err';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Termin erstellen';
+                    });
+                });
+            }
+
+            // Load appointments on page load
+            loadAppointments();
+        })();
+        </script>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function render_staff_password_reset_request() {
+        $design = get_option('valcode_appoint_design', []);
+        $accent = $design['accent_color'] ?? '#6366f1';
+
+        ob_start(); ?>
+        <div class="va-booking-form">
+            <div class="va-step">
+                <h3 style="margin-bottom: 30px;">Passwort zurücksetzen</h3>
+                <form id="va-staff-reset-request-form">
+                    <div class="va-field" style="margin-bottom: 30px;">
+                        <label for="reset-email">E-Mail-Adresse</label>
+                        <input type="email" id="reset-email" required>
+                    </div>
+                    <div class="va-actions">
+                        <button type="submit" class="va-btn">Zurücksetzungs-Link senden</button>
+                    </div>
+                    <div id="request-result" class="va-msg" style="margin-top: 20px;"></div>
+                </form>
+                <p style="text-align: center; margin-top: 30px;">
+                    <a href="<?php echo remove_query_arg('view'); ?>" style="color: <?php echo esc_attr($accent); ?>; text-decoration: none; font-weight: 600;">Zurück zum Login</a>
+                </p>
+            </div>
+        </div>
+        <script>
+        (function(){
+            var form = document.getElementById('va-staff-reset-request-form');
+            if(!form) return;
+
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var email = document.getElementById('reset-email').value;
+                var result = document.getElementById('request-result');
+                var btn = form.querySelector('button[type="submit"]');
+
+                btn.disabled = true;
+                btn.textContent = 'Senden...';
+                result.textContent = '';
+
+                var fd = new FormData();
+                fd.append('action', 'valcode_staff_reset_request');
+                fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+                fd.append('email', email);
+
+                fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.success){
+                        result.textContent = res.data.message;
+                        result.className = 'va-msg success';
+                        form.reset();
+                    } else {
+                        result.textContent = res.data && res.data.message ? res.data.message : 'Fehler beim Senden.';
+                        result.className = 'va-msg err';
+                    }
+                    btn.disabled = false;
+                    btn.textContent = 'Zurücksetzungs-Link senden';
+                })
+                .catch(function(){
+                    result.textContent = 'Fehler beim Senden.';
+                    result.className = 'va-msg err';
+                    btn.disabled = false;
+                    btn.textContent = 'Zurücksetzungs-Link senden';
+                });
+            });
+        })();
+        </script>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function render_staff_password_reset_form($token) {
+        ob_start(); ?>
+        <div class="va-booking-form">
+            <div class="va-step">
+                <h3 style="margin-bottom: 30px;">Neues Passwort setzen</h3>
+                <form id="va-staff-reset-form">
+                    <input type="hidden" id="reset-token" value="<?php echo esc_attr($token); ?>">
+                    <div class="va-field" style="margin-bottom: 25px;">
+                        <label for="new-password">Neues Passwort</label>
+                        <input type="password" id="new-password" required minlength="6">
+                        <p class="description" style="margin-top: 8px; font-size: 13px; color: #999;">Mindestens 6 Zeichen</p>
+                    </div>
+                    <div class="va-field" style="margin-bottom: 30px;">
+                        <label for="confirm-password">Passwort bestätigen</label>
+                        <input type="password" id="confirm-password" required minlength="6">
+                    </div>
+                    <div class="va-actions">
+                        <button type="submit" class="va-btn">Passwort zurücksetzen</button>
+                    </div>
+                    <div id="reset-result" class="va-msg" style="margin-top: 20px;"></div>
+                </form>
+            </div>
+        </div>
+        <script>
+        (function(){
+            var form = document.getElementById('va-staff-reset-form');
+            if(!form) return;
+
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var token = document.getElementById('reset-token').value;
+                var newPass = document.getElementById('new-password').value;
+                var confirmPass = document.getElementById('confirm-password').value;
+                var result = document.getElementById('reset-result');
+                var btn = form.querySelector('button[type="submit"]');
+
+                if(newPass !== confirmPass){
+                    result.textContent = 'Passwörter stimmen nicht überein.';
+                    result.className = 'va-msg err';
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.textContent = 'Zurücksetzen...';
+                result.textContent = '';
+
+                var fd = new FormData();
+                fd.append('action', 'valcode_staff_reset_password');
+                fd.append('nonce', '<?php echo wp_create_nonce("valcode_appoint_nonce"); ?>');
+                fd.append('token', token);
+                fd.append('password', newPass);
+
+                fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if(res.success){
+                        result.textContent = res.data.message;
+                        result.className = 'va-msg success';
+                        form.reset();
+                        setTimeout(function(){
+                            window.location.href = window.location.pathname;
+                        }, 2000);
+                    } else {
+                        result.textContent = res.data && res.data.message ? res.data.message : 'Fehler beim Zurücksetzen.';
+                        result.className = 'va-msg err';
+                        btn.disabled = false;
+                        btn.textContent = 'Passwort zurücksetzen';
+                    }
+                })
+                .catch(function(){
+                    result.textContent = 'Fehler beim Zurücksetzen.';
+                    result.className = 'va-msg err';
+                    btn.disabled = false;
+                    btn.textContent = 'Passwort zurücksetzen';
+                });
+            });
         })();
         </script>
         <?php

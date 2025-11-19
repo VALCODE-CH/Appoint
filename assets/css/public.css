@@ -35,29 +35,41 @@
   grid-column: 1/-1; 
 }
 
-.va-booking-form .va-field{ 
-  display:flex; 
-  flex-direction:column; 
-  margin-bottom: 16px;
+.va-booking-form .va-field{
+  display:flex;
+  flex-direction:column;
+  margin-bottom: 20px;
 }
 
-.va-booking-form label{ 
-  font-weight:600; 
-  color: var(--va-primary); 
-  margin-bottom:8px;
+.va-booking-form label{
+  font-weight:600;
+  color: var(--va-primary);
+  margin-bottom:10px;
   font-size: 14px;
+}
+
+input {
+    width: auto !important;
 }
 
 .va-booking-form select,
 .va-booking-form input,
 .va-booking-form textarea{
   width:100%;
-  padding:12px 14px;
+  padding:14px 16px;
   border:1px solid #d1d5db;
   border-radius: calc(var(--va-radius) - 2px);
   background:#fff;
   font-size: 15px;
   transition: all 0.2s ease;
+  line-height: 1.5;
+  height: 52px;
+  box-sizing: border-box;
+}
+
+.va-booking-form textarea{
+  height: auto;
+  min-height: 100px;
 }
 
 /* Remove browser default red borders on invalid fields */
@@ -99,17 +111,22 @@
   gap: 12px;
 }
 
-.va-btn{ 
-  background: var(--va-accent); 
-  color:#fff; 
-  padding:14px 24px; 
-  border:none; 
-  border-radius: calc(var(--va-radius) - 2px); 
-  cursor:pointer; 
+.va-btn{
+  background: var(--va-accent);
+  color:#fff;
+  padding:14px 24px;
+  border:none;
+  border-radius: calc(var(--va-radius) - 2px);
+  cursor:pointer;
   font-weight:600;
   font-size: 15px;
   transition: all 0.2s ease;
   flex: 1;
+  height: 52px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .va-btn:hover:not(:disabled){ 
