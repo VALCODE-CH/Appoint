@@ -1610,55 +1610,55 @@ class Valcode_Appoint {
         <div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen-Sans, Ubuntu, Cantarell, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
             <div style="background: linear-gradient(135deg, ' . $gradient_start . ' 0%, ' . $gradient_end . ' 100%); padding: 40px 30px; text-align: center; color: white; border-radius: 0;">
                 ' . ($logo_url ? '<div style="margin-bottom: 20px;"><img src="' . esc_url($logo_url) . '" alt="' . esc_attr($blogname) . '" style="max-height: 60px; width: auto;"/></div>' : '') . '
-                <h1 style="margin: 0; font-size: 32px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">✓ Buchung bestätigt!</h1>
+                <h1 style="margin: 0; font-size: 32px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Buchung bestätigt!</h1>
             </div>
             <div style="background: #f6f7f7; padding: 40px 30px;">
                 <p style="font-size: 18px; color: #1e1e1e; margin-top: 0;">Hallo <strong>' . esc_html($customer_name) . '</strong>,</p>
                 <p style="font-size: 16px; color: #3c434a; line-height: 1.6;">vielen Dank für Ihre Buchung! Wir freuen uns auf Ihren Besuch.</p>
 
                 <div style="background: white; border-radius: 8px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ' . $accent_color . ';">
-                    <h2 style="margin: 0 0 20px 0; color: #1e1e1e; font-size: 22px; font-weight: 600;">📋 Ihre Termindetails</h2>
+                    <h2 style="margin: 0 0 20px 0; color: #1e1e1e; font-size: 22px; font-weight: 600;">Ihre Termindetails</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 12px 0; color: #646970; font-size: 15px;">Service:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html($service->name) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">📅 Datum:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Datum:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html(wp_date('d.m.Y', strtotime($starts_at), new DateTimeZone('Europe/Zurich'))) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">🕐 Uhrzeit:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Uhrzeit:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html(wp_date('H:i', strtotime($starts_at), new DateTimeZone('Europe/Zurich'))) . ' - ' . esc_html(wp_date('H:i', strtotime($ends_at), new DateTimeZone('Europe/Zurich'))) . ' Uhr</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">⏱️ Dauer:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Dauer:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . (int)$service->duration_minutes . ' Minuten</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">💰 Preis:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Preis:</td>
                             <td style="padding: 12px 0; color: ' . $accent_color . '; font-weight: 700; text-align: right; font-size: 16px;">CHF ' . number_format((float)$service->price, 2) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">👤 Mitarbeiter:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Mitarbeiter:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html($staff_name) . '</td>
                         </tr>
                     </table>
                 </div>
 
                 ' . ($notes ? '<div style="background: #fef8e7; border-left: 4px solid #f0b849; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                    <p style="margin: 0; color: #32373c; font-size: 15px;"><strong style="color: #8a6d3b;">💬 Ihre Notizen:</strong><br/><span style="margin-top: 8px; display: inline-block;">' . nl2br(esc_html($notes)) . '</span></p>
+                    <p style="margin: 0; color: #32373c; font-size: 15px;"><strong style="color: #8a6d3b;">Ihre Notizen:</strong><br/><span style="margin-top: 8px; display: inline-block;">' . nl2br(esc_html($notes)) . '</span></p>
                 </div>' : '') . '
 
                 <div style="text-align: center; margin: 35px 0;">
                     <a href="' . esc_url($gcal_link) . '" style="display: inline-block; background: linear-gradient(135deg, ' . $gradient_start . ' 0%, ' . $gradient_end . ' 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: all 0.3s;">
-                        📅 Zu Google Kalender hinzufügen
+                        Zu Google Kalender hinzufügen
                     </a>
                 </div>
 
                 <div style="background: #d5e5f2; padding: 20px; border-radius: 6px; margin-top: 30px; text-align: center;">
                     <p style="font-size: 14px; color: #1e5b8a; margin: 0; line-height: 1.6;">
-                        📎 Die angehängte .ics-Datei können Sie in Ihren Kalender importieren (Outlook, Apple Calendar, etc.)
+                        Die angehängte .ics-Datei können Sie in Ihren Kalender importieren (Outlook, Apple Calendar, etc.)
                     </p>
                 </div>
             </div>
@@ -1675,18 +1675,18 @@ class Valcode_Appoint {
         <div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen-Sans, Ubuntu, Cantarell, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
             <div style="background: linear-gradient(135deg, ' . $primary_color . ' 0%, ' . $accent_color . ' 100%); padding: 40px 30px; text-align: center; color: white;">
                 ' . ($logo_url ? '<div style="margin-bottom: 20px;"><img src="' . esc_url($logo_url) . '" alt="' . esc_attr($blogname) . '" style="max-height: 60px; width: auto;"/></div>' : '') . '
-                <h1 style="margin: 0; font-size: 28px; font-weight: 600;">🔔 Neue Buchung erhalten</h1>
+                <h1 style="margin: 0; font-size: 28px; font-weight: 600;">Neue Buchung erhalten</h1>
             </div>
             <div style="background: #f6f7f7; padding: 40px 30px;">
                 <div style="background: white; border-radius: 8px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ' . $accent_color . ';">
-                    <h2 style="margin: 0 0 20px 0; color: #1e1e1e; font-size: 22px; font-weight: 600;">📋 Buchungsdetails</h2>
+                    <h2 style="margin: 0 0 20px 0; color: #1e1e1e; font-size: 22px; font-weight: 600;">Buchungsdetails</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">👤 Kunde:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Kunde:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html($customer_name) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">✉️ E-Mail:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">E-Mail:</td>
                             <td style="padding: 12px 0; color: ' . $accent_color . '; font-weight: 600; text-align: right; font-size: 15px;"><a href="mailto:' . esc_attr($customer_email) . '" style="color: ' . $accent_color . '; text-decoration: none;">' . esc_html($customer_email) . '</a></td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
@@ -1694,35 +1694,35 @@ class Valcode_Appoint {
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html($service->name) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">📅 Datum:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Datum:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html(wp_date('d.m.Y', strtotime($starts_at), new DateTimeZone('Europe/Zurich'))) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">🕐 Uhrzeit:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Uhrzeit:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html(wp_date('H:i', strtotime($starts_at), new DateTimeZone('Europe/Zurich'))) . ' - ' . esc_html(wp_date('H:i', strtotime($ends_at), new DateTimeZone('Europe/Zurich'))) . ' Uhr</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">⏱️ Dauer:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Dauer:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . (int)$service->duration_minutes . ' Minuten</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">👔 Mitarbeiter:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Mitarbeiter:</td>
                             <td style="padding: 12px 0; color: #1e1e1e; font-weight: 600; text-align: right; font-size: 15px;">' . esc_html($staff_name) . '</td>
                         </tr>
                         <tr style="border-top: 1px solid #f0f0f1;">
-                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">💰 Preis:</td>
+                            <td style="padding: 12px 0; color: #646970; font-size: 15px;">Preis:</td>
                             <td style="padding: 12px 0; color: #00a32a; font-weight: 700; text-align: right; font-size: 16px;">CHF ' . number_format((float)$service->price, 2) . '</td>
                         </tr>
                     </table>
                 </div>
 
                 ' . ($notes ? '<div style="background: #fef8e7; border-left: 4px solid #f0b849; padding: 20px; margin: 20px 0; border-radius: 4px;">
-                    <p style="margin: 0; color: #32373c; font-size: 15px;"><strong style="color: #8a6d3b;">💬 Kundennotizen:</strong><br/><span style="margin-top: 8px; display: inline-block;">' . nl2br(esc_html($notes)) . '</span></p>
+                    <p style="margin: 0; color: #32373c; font-size: 15px;"><strong style="color: #8a6d3b;">Kundennotizen:</strong><br/><span style="margin-top: 8px; display: inline-block;">' . nl2br(esc_html($notes)) . '</span></p>
                 </div>' : '') . '
 
                 <div style="text-align: center; margin: 35px 0;">
                     <a href="' . esc_url(admin_url('admin.php?page=valcode-appoint-appointments')) . '" style="display: inline-block; background: linear-gradient(135deg, ' . $gradient_start . ' 0%, ' . $gradient_end . ' 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">
-                        📋 Termin im Dashboard anzeigen
+                        Termin im Dashboard anzeigen
                     </a>
                 </div>
             </div>
@@ -2193,8 +2193,8 @@ class Valcode_Appoint {
 
                     <div class="va-success-details" id="va_success_msg" style="background: #f6f7f7; border-radius: 12px; padding: 30px; margin: 20px 0; border-left: 4px solid var(--va-accent); text-align: left;">
                         <p style="font-size: 15px; color: #3c434a; line-height: 1.8; margin: 0;">
-                            <strong style="color: #1e1e1e; font-size: 16px;">✓ Was passiert jetzt?</strong><br><br>
-                            📧 Sie erhalten in Kürze eine Bestätigungs-E-Mail mit:<br>
+                            <strong style="color: #1e1e1e; font-size: 16px;">Was passiert jetzt?</strong><br><br>
+                            Sie erhalten in Kürze eine Bestätigungs-E-Mail mit:<br>
                             • Allen Termindetails<br>
                             • Einem Kalendereintrag (.ics Datei)<br>
                             • Link zum Google Kalender<br><br>
@@ -2203,7 +2203,7 @@ class Valcode_Appoint {
                     </div>
 
                     <button type="button" class="va-btn va-btn-new" onclick="window.location.reload()" style="background: linear-gradient(135deg, var(--va-gradient-start) 0%, var(--va-gradient-end) 100%); border: none; color: white; font-size: 16px; padding: 16px 40px; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: all 0.3s; margin-top: 20px;">
-                        ← Neuen Termin buchen
+                        Neuen Termin buchen
                     </button>
                 </div>
             </div>
