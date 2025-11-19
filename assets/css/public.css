@@ -50,14 +50,38 @@
 
 .va-booking-form select,
 .va-booking-form input,
-.va-booking-form textarea{ 
-  width:100%; 
-  padding:12px 14px; 
-  border:1px solid #d1d5db; 
-  border-radius: calc(var(--va-radius) - 2px); 
+.va-booking-form textarea{
+  width:100%;
+  padding:12px 14px;
+  border:1px solid #d1d5db;
+  border-radius: calc(var(--va-radius) - 2px);
   background:#fff;
   font-size: 15px;
   transition: all 0.2s ease;
+}
+
+/* Remove browser default red borders on invalid fields */
+.va-booking-form input:invalid,
+.va-booking-form select:invalid,
+.va-booking-form textarea:invalid{
+  box-shadow: none;
+}
+
+.va-booking-form button,
+.va-btn{
+  outline: none;
+  box-shadow: none;
+}
+
+.va-booking-form button:focus,
+.va-btn:focus{
+  outline: none;
+  box-shadow: none;
+}
+
+.va-booking-form button::-moz-focus-inner,
+.va-btn::-moz-focus-inner{
+  border: 0;
 }
 
 .va-booking-form select:focus,
@@ -719,11 +743,13 @@
 @media (max-width: 768px){
   .va-auth-options{
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .va-customer-card{
     flex-direction: column;
     text-align: center;
+    padding: 20px;
   }
 
   .va-customer-info{
@@ -734,6 +760,20 @@
   .va-btn-logout{
     width: 100%;
     justify-content: center;
+  }
+
+  .va-radio-label{
+    padding: 24px 16px;
+    min-height: 120px;
+  }
+
+  .va-auth-form{
+    padding: 20px;
+  }
+
+  .va-grid{
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 

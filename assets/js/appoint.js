@@ -481,12 +481,18 @@
 
                 // Determine booking mode
                 var bookingMode = 'guest';
-                var modeInput = q('va_booking_mode');
-                if(modeInput){
-                    bookingMode = modeInput.value;
+
+                // Check if user is already logged in
+                if(currentCustomer && currentCustomer.customer_id){
+                    bookingMode = 'logged_in';
                 } else {
-                    var selectedMode = document.querySelector('input[name="booking_mode"]:checked');
-                    if(selectedMode) bookingMode = selectedMode.value;
+                    var modeInput = q('va_booking_mode');
+                    if(modeInput){
+                        bookingMode = modeInput.value;
+                    } else {
+                        var selectedMode = document.querySelector('input[name="booking_mode"]:checked');
+                        if(selectedMode) bookingMode = selectedMode.value;
+                    }
                 }
 
                 // Handle login first
@@ -583,7 +589,15 @@
                 }
 
                 // Handle guest or already logged in
-                var customerId = q('va_customer_id') ? q('va_customer_id').value : null;
+                var customerId = null;
+                if(bookingMode === 'logged_in'){
+                    // Get customer ID from hidden field or currentCustomer object
+                    var customerIdEl = q('va_customer_id');
+                    customerId = customerIdEl ? customerIdEl.value : null;
+                    if(!customerId && currentCustomer){
+                        customerId = currentCustomer.customer_id;
+                    }
+                }
                 createAppointment(submitBtn, bookingMode, customerId);
             });
         }
@@ -598,9 +612,16 @@
 
             // Get customer info based on mode
             if(mode === 'logged_in' && userId){
+                // Use customer data from currentCustomer object
                 fd.append('user_id', userId);
-                fd.append('customer_name', 'User ID: ' + userId); // Will be populated from WP user
-                fd.append('customer_email', ''); // Will be populated from WP user
+                if(currentCustomer){
+                    fd.append('customer_name', currentCustomer.customer_name || '');
+                    fd.append('customer_email', currentCustomer.customer_email || '');
+                } else {
+                    // Fallback if currentCustomer is not set
+                    fd.append('customer_name', '');
+                    fd.append('customer_email', '');
+                }
             } else {
                 // Guest mode
                 var guestName = q('va_guest_name');
@@ -611,7 +632,13 @@
                 }
             }
 
-            var notesField = q('va_notes');
+            // Get notes from the appropriate field
+            var notesField = null;
+            if(mode === 'logged_in'){
+                notesField = q('va_notes_logged_in');
+            } else {
+                notesField = q('va_notes') || q('va_reg_notes');
+            }
             if(notesField) fd.append('notes', notesField.value);
 
             fetch(ValcodeAppoint.ajax, {

@@ -85,6 +85,55 @@ class Valcode_Appoint {
 
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_public' ] );
+
+        // SMTP Configuration für E-Mail-Versand
+        add_action( 'phpmailer_init', [ $this, 'configure_smtp' ] );
+    }
+
+    /**
+     * Konfiguriert SMTP für den E-Mail-Versand
+     * SMTP-Einstellungen werden aus den Plugin-Einstellungen geladen
+     */
+    public function configure_smtp($phpmailer) {
+        // SMTP-Einstellungen aus Plugin-Optionen laden
+        $settings = get_option('valcode_appoint_settings', []);
+
+        $smtp_host = $settings['smtp_host'] ?? '';
+        $smtp_port = $settings['smtp_port'] ?? 587;
+        $smtp_secure = $settings['smtp_secure'] ?? '';
+        $smtp_auth = !empty($settings['smtp_auth']);
+        $smtp_user = $settings['smtp_user'] ?? '';
+        $smtp_pass = $settings['smtp_pass'] ?? '';
+        $smtp_from_name = $settings['smtp_from_name'] ?? wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+
+        // Nur konfigurieren wenn SMTP-Host gesetzt ist
+        if (!empty($smtp_host)) {
+            $phpmailer->isSMTP();
+            $phpmailer->Host = $smtp_host;
+            $phpmailer->Port = $smtp_port;
+
+            if (!empty($smtp_secure)) {
+                $phpmailer->SMTPSecure = $smtp_secure;
+            }
+
+            if ($smtp_auth && !empty($smtp_user)) {
+                $phpmailer->SMTPAuth = true;
+                $phpmailer->Username = $smtp_user;
+                $phpmailer->Password = $smtp_pass;
+            }
+
+            // Verwende SMTP-User als From-Adresse
+            if (!empty($smtp_user)) {
+                $phpmailer->From = $smtp_user;
+                $phpmailer->FromName = $smtp_from_name;
+            }
+
+            // Debug bei WP_DEBUG
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $phpmailer->SMTPDebug = 2;
+                $phpmailer->Debugoutput = 'error_log';
+            }
+        }
     }
 
     public function activate() {
@@ -1188,7 +1237,60 @@ class Valcode_Appoint {
                         <strong>1</strong> = Mindestens 1 Tag im Voraus<br>
                         <strong>2</strong> = Mindestens 2 Tage im Voraus, etc.</p>
                     </div>
-                    
+
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
+                    <h2 style="margin-bottom: 20px;">SMTP E-Mail-Einstellungen</h2>
+                    <p class="description" style="margin-bottom: 20px;">Konfigurieren Sie Ihren SMTP-Server für den E-Mail-Versand. Die SMTP-Benutzername wird automatisch als Absender-Adresse verwendet.</p>
+
+                    <div class="va-field">
+                        <label for="smtp_host">SMTP Host</label>
+                        <input type="text" id="smtp_host" name="smtp_host" value="<?php echo esc_attr($settings['smtp_host'] ?? ''); ?>" placeholder="smtp.gmail.com" />
+                        <p class="description">SMTP Server-Adresse (z.B. smtp.gmail.com, smtp.office365.com)</p>
+                    </div>
+
+                    <div class="va-field">
+                        <label for="smtp_port">SMTP Port</label>
+                        <input type="number" id="smtp_port" name="smtp_port" value="<?php echo esc_attr($settings['smtp_port'] ?? '587'); ?>" placeholder="587" />
+                        <p class="description">SMTP Port (587 für TLS, 465 für SSL, 25 für unverschlüsselt)</p>
+                    </div>
+
+                    <div class="va-field">
+                        <label for="smtp_secure">Verschlüsselung</label>
+                        <select id="smtp_secure" name="smtp_secure">
+                            <option value="">Keine</option>
+                            <option value="tls" <?php selected($settings['smtp_secure'] ?? 'tls', 'tls'); ?>>TLS</option>
+                            <option value="ssl" <?php selected($settings['smtp_secure'] ?? '', 'ssl'); ?>>SSL</option>
+                        </select>
+                        <p class="description">Verschlüsselungsmethode (TLS empfohlen)</p>
+                    </div>
+
+                    <div class="va-field">
+                        <label for="smtp_auth">SMTP Authentifizierung</label>
+                        <label style="display: inline-flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="smtp_auth" name="smtp_auth" value="1" <?php checked(!empty($settings['smtp_auth'])); ?> />
+                            <span>SMTP Authentifizierung aktivieren</span>
+                        </label>
+                        <p class="description">Aktivieren Sie dies, wenn Ihr SMTP-Server Authentifizierung benötigt (meistens der Fall)</p>
+                    </div>
+
+                    <div class="va-field">
+                        <label for="smtp_user">SMTP Benutzername / E-Mail-Adresse</label>
+                        <input type="text" id="smtp_user" name="smtp_user" value="<?php echo esc_attr($settings['smtp_user'] ?? ''); ?>" placeholder="ihre-email@gmail.com" />
+                        <p class="description">Ihr E-Mail-Benutzername (meist Ihre E-Mail-Adresse). Dies wird auch als Absender-Adresse verwendet.</p>
+                    </div>
+
+                    <div class="va-field">
+                        <label for="smtp_pass">SMTP Passwort</label>
+                        <input type="password" id="smtp_pass" name="smtp_pass" value="<?php echo esc_attr($settings['smtp_pass'] ?? ''); ?>" placeholder="••••••••" />
+                        <p class="description">Ihr E-Mail-Passwort (bei Gmail: App-Passwort verwenden)</p>
+                    </div>
+
+                    <div class="va-field">
+                        <label for="smtp_from_name">Absender Name</label>
+                        <input type="text" id="smtp_from_name" name="smtp_from_name" value="<?php echo esc_attr($settings['smtp_from_name'] ?? get_bloginfo('name')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>" />
+                        <p class="description">Der Name, der in E-Mails als Absender angezeigt wird (z.B. Ihr Firmenname)</p>
+                    </div>
+
                     <div class="va-actions">
                         <button class="button button-primary">Einstellungen speichern</button>
                     </div>
@@ -1205,12 +1307,21 @@ class Valcode_Appoint {
     public function handle_save_settings() {
         if ( ! current_user_can('manage_options') ) wp_die('Forbidden');
         check_admin_referer( 'valcode_save_settings', '_va' );
-        
+
         $settings = get_option('valcode_appoint_settings', []);
         $settings['min_advance_days'] = max(0, min(365, (int)($_POST['min_advance_days'] ?? 0)));
-        
+
+        // SMTP Settings
+        $settings['smtp_host'] = sanitize_text_field($_POST['smtp_host'] ?? '');
+        $settings['smtp_port'] = absint($_POST['smtp_port'] ?? 587);
+        $settings['smtp_secure'] = sanitize_text_field($_POST['smtp_secure'] ?? '');
+        $settings['smtp_auth'] = !empty($_POST['smtp_auth']) ? 1 : 0;
+        $settings['smtp_user'] = sanitize_text_field($_POST['smtp_user'] ?? '');
+        $settings['smtp_pass'] = $_POST['smtp_pass'] ?? ''; // Don't sanitize password
+        $settings['smtp_from_name'] = sanitize_text_field($_POST['smtp_from_name'] ?? '');
+
         update_option('valcode_appoint_settings', $settings);
-        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-settings&saved=1') ); 
+        wp_safe_redirect( admin_url('admin.php?page=valcode-appoint-settings&saved=1') );
         exit;
     }
 
@@ -1339,6 +1450,24 @@ class Valcode_Appoint {
         $notes          = sanitize_textarea_field( $_POST['notes'] ?? '' );
         $user_id        = isset($_POST['user_id']) ? absint($_POST['user_id']) : null;
 
+        // If user_id is provided, get customer data from database
+        if ( $user_id ) {
+            $customer = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$this->tables['customers']} WHERE id=%d",
+                $user_id
+            ));
+
+            if ( $customer ) {
+                $customer_name = $customer->first_name . ' ' . $customer->last_name;
+                $customer_email = $customer->email;
+                if ( $customer->notes && !$notes ) {
+                    $notes = $customer->notes;
+                }
+            } else {
+                wp_send_json_error(['message'=>'Kunde nicht gefunden.']); return;
+            }
+        }
+
         if ( ! $customer_name || ! $service_id || ! $starts_at_raw ) {
             wp_send_json_error(['message'=>'Erforderliche Felder fehlen.']); return;
         }
@@ -1422,10 +1551,22 @@ class Valcode_Appoint {
         // Email both customer and admin
         $admin_email = get_option('admin_email');
         $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
-        $from_email = 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+
+        // Get email settings from plugin options (SMTP settings)
+        $settings = get_option('valcode_appoint_settings', []);
+        $from_email = !empty($settings['smtp_user']) ? $settings['smtp_user'] : 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+        $from_name = !empty($settings['smtp_from_name']) ? $settings['smtp_from_name'] : $blogname;
+
+        // Get staff details
+        $staff = $wpdb->get_row($wpdb->prepare(
+            "SELECT display_name, email FROM {$this->tables['staff']} WHERE id=%d",
+            $staff_id
+        ));
+        $staff_name = $staff ? $staff->display_name : 'Unser Team';
+
         $headers = [
             'Content-Type: text/html; charset=UTF-8',
-            'From: ' . $blogname . ' <' . $from_email . '>'
+            'From: ' . $from_name . ' <' . $from_email . '>'
         ];
         $attachments = [];
         $tmp = wp_upload_dir();
@@ -1437,19 +1578,137 @@ class Valcode_Appoint {
             .'&dates='.gmdate('Ymd\THis\Z', strtotime($starts_at)).'%2F'.gmdate('Ymd\THis\Z', strtotime($ends_at))
             .'&details='.rawurlencode("{$desc}").'&sf=true&output=xml';
 
-        $body_html = '<p>Danke für Ihre Buchung!</p><p><strong>'.esc_html($service->name).'</strong><br/>'
-            . esc_html( wp_date('d.m.Y H:i', strtotime($starts_at)) ) . ' – '
-            . esc_html( wp_date('H:i', strtotime($ends_at)) ) . '</p>'
-            . '<p><a href="'.esc_url($gcal_link).'" target="_blank" rel="noopener">Zu Google Kalender hinzufügen</a></p>';
+        // Enhanced email body for customer
+        $customer_body_html = '
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+                <h1 style="margin: 0; font-size: 28px;">✓ Buchung bestätigt!</h1>
+            </div>
+            <div style="background: #f9fafb; padding: 30px;">
+                <p style="font-size: 16px; color: #0f172a;">Hallo ' . esc_html($customer_name) . ',</p>
+                <p style="font-size: 16px; color: #0f172a;">vielen Dank für Ihre Buchung! Wir freuen uns auf Ihren Besuch.</p>
+
+                <div style="background: white; border-radius: 14px; padding: 24px; margin: 24px 0; border: 1px solid #e5e7eb;">
+                    <h2 style="margin: 0 0 16px 0; color: #0f172a; font-size: 20px;">Ihre Termindetails</h2>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Service:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html($service->name) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Datum:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html(wp_date('d.m.Y', strtotime($starts_at))) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Uhrzeit:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html(wp_date('H:i', strtotime($starts_at))) . ' - ' . esc_html(wp_date('H:i', strtotime($ends_at))) . ' Uhr</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Dauer:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . (int)$service->duration_minutes . ' Minuten</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Preis:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">CHF ' . number_format((float)$service->price, 2) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Mitarbeiter:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html($staff_name) . '</td>
+                        </tr>
+                    </table>
+                </div>
+
+                ' . ($notes ? '<div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 16px 0; border-radius: 8px;">
+                    <p style="margin: 0; color: #92400e;"><strong>Ihre Notizen:</strong><br/>' . nl2br(esc_html($notes)) . '</p>
+                </div>' : '') . '
+
+                <div style="text-align: center; margin: 24px 0;">
+                    <a href="' . esc_url($gcal_link) . '" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                        📅 Zu Google Kalender hinzufügen
+                    </a>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; text-align: center; margin-top: 24px;">
+                    Der angehängte .ics-Datei kann in Ihren Kalender importiert werden.
+                </p>
+            </div>
+            <div style="background: #0f172a; padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+                <p style="margin: 0;">' . esc_html($blogname) . '</p>
+                <p style="margin: 8px 0 0 0;">Diese E-Mail wurde automatisch generiert.</p>
+            </div>
+        </div>';
+
+        // Admin notification email
+        $admin_body_html = '
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #0f172a; padding: 30px; text-align: center; color: white;">
+                <h1 style="margin: 0; font-size: 24px;">Neue Buchung erhalten</h1>
+            </div>
+            <div style="background: #f9fafb; padding: 30px;">
+                <div style="background: white; border-radius: 14px; padding: 24px; margin: 24px 0; border: 1px solid #e5e7eb;">
+                    <h2 style="margin: 0 0 16px 0; color: #0f172a; font-size: 20px;">Buchungsdetails</h2>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Kunde:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html($customer_name) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">E-Mail:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;"><a href="mailto:' . esc_attr($customer_email) . '">' . esc_html($customer_email) . '</a></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Service:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html($service->name) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Datum:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html(wp_date('d.m.Y', strtotime($starts_at))) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Uhrzeit:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html(wp_date('H:i', strtotime($starts_at))) . ' - ' . esc_html(wp_date('H:i', strtotime($ends_at))) . ' Uhr</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Mitarbeiter:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">' . esc_html($staff_name) . '</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Preis:</td>
+                            <td style="padding: 8px 0; color: #0f172a; font-weight: 700;">CHF ' . number_format((float)$service->price, 2) . '</td>
+                        </tr>
+                    </table>
+                </div>
+
+                ' . ($notes ? '<div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 16px 0; border-radius: 8px;">
+                    <p style="margin: 0; color: #92400e;"><strong>Kundennotizen:</strong><br/>' . nl2br(esc_html($notes)) . '</p>
+                </div>' : '') . '
+            </div>
+        </div>';
 
         $mail_sent = false;
-        if($customer_email){
-            $mail_sent = wp_mail($customer_email, 'Buchungsbestätigung – ' . $blogname, $body_html, $headers, $attachments);
-        }
-        wp_mail($admin_email, 'Neue Buchung – ' . $blogname, $body_html, $headers, $attachments);
+        $admin_mail_sent = false;
 
-        // Clean up ICS file
+        // Send to customer first
+        if($customer_email){
+            $mail_sent = wp_mail($customer_email, 'Buchungsbestätigung – ' . $blogname, $customer_body_html, $headers, $attachments);
+
+            // Log email result for debugging
+            if(!$mail_sent) {
+                error_log('Valcode Appoint: Failed to send customer email to ' . $customer_email);
+            }
+        }
+
+        // Send to admin
+        $admin_mail_sent = wp_mail($admin_email, 'Neue Buchung – ' . $blogname, $admin_body_html, $headers, $attachments);
+
+        if(!$admin_mail_sent) {
+            error_log('Valcode Appoint: Failed to send admin email to ' . $admin_email);
+        }
+
+        // Clean up ICS file after both emails are sent
         if(file_exists($ics_path)) {
+            // Small delay to ensure emails are processed
+            sleep(1);
             @unlink($ics_path);
         }
 
@@ -1731,6 +1990,14 @@ class Valcode_Appoint {
                         </button>
                     </div>
                     <input type="hidden" id="va_customer_id" value=""/>
+
+                    <!-- Notes field for logged in users -->
+                    <div class="va-auth-form" style="margin-top: 20px;">
+                        <div class="va-field full">
+                            <label for="va_notes_logged_in">Notizen / Wünsche (optional)</label>
+                            <textarea id="va_notes_logged_in" name="notes_logged_in" rows="4" placeholder="Besondere Wünsche oder Hinweise..."></textarea>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Auth options (shown when not logged in) -->
@@ -1927,7 +2194,12 @@ class Valcode_Appoint {
 
         // Send email
         $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
-        $from_email = 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+
+        // Get email settings from plugin options (SMTP settings)
+        $settings = get_option('valcode_appoint_settings', []);
+        $from_email = !empty($settings['smtp_user']) ? $settings['smtp_user'] : 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+        $from_name = !empty($settings['smtp_from_name']) ? $settings['smtp_from_name'] : $blogname;
+
         $reset_link = home_url('?valcode_reset=' . $token);
 
         $subject = 'Passwort zurücksetzen – ' . $blogname;
@@ -1939,7 +2211,7 @@ class Valcode_Appoint {
 
         $headers = [
             'Content-Type: text/html; charset=UTF-8',
-            'From: ' . $blogname . ' <' . $from_email . '>'
+            'From: ' . $from_name . ' <' . $from_email . '>'
         ];
 
         wp_mail($email, $subject, $message, $headers);
