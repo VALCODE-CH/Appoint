@@ -347,7 +347,7 @@
                 .then(function(r){ return r.json(); })
                 .then(function(res){
                     var items = (res && res.success && res.data && res.data.workers) ? res.data.workers : [];
-                    items = items.map(function(w){ return { id: w.id, name: w.name }; });
+                    items = items.map(function(w){ return { id: w.id, name: w.display_name }; });
                     setOptions(worker, items, items.length ? 'Bitte wählen…' : 'Keine Mitarbeiter verfügbar');
                     worker.disabled = items.length === 0;
                     refreshNext1();

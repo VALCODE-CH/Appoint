@@ -3109,26 +3109,32 @@ class Valcode_Appoint {
             <div class="va-step">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
                     <h3 style="margin: 0;">Willkommen, <?php echo esc_html($staff_name); ?></h3>
-                    <button id="va-staff-logout" style="padding: 8px 16px; font-size: 13px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">Abmelden</button>
+                    <button id="va-staff-logout" style="padding: 0 24px; font-size: 15px; background: #dc3545; color: white; border: none; border-radius: calc(var(--va-radius) - 2px); cursor: pointer; font-weight: 600; transition: all 0.2s; height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;">Abmelden</button>
                 </div>
 
-                <div style="display: flex; gap: 30px; align-items: end; margin-bottom: 40px; flex-wrap: wrap;">
-                    <div class="va-field" style="margin: 0;">
-                        <label for="filter-from">Von</label>
-                        <input type="date" id="filter-from" value="<?php echo date('Y-m-d'); ?>">
+                <div style="display: flex; justify-content: space-between; align-items: end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px;">
+                    <div style="display: flex; gap: 30px; align-items: end; flex-wrap: wrap;">
+                        <div class="va-field" style="margin: 0;">
+                            <label for="filter-from">Von</label>
+                            <input type="date" id="filter-from" value="<?php echo date('Y-m-d'); ?>">
+                        </div>
+                        <div class="va-field" style="margin: 0;">
+                            <label for="filter-to">Bis</label>
+                            <input type="date" id="filter-to" value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
+                        </div>
+                        <div style="margin-left: 30px;">
+                            <button id="load-appointments" class="va-btn">Termine laden</button>
+                        </div>
                     </div>
-                    <div class="va-field" style="margin: 0;">
-                        <label for="filter-to">Bis</label>
-                        <input type="date" id="filter-to" value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <div style="display: flex; gap: 5px; background: #e9ecef; padding: 4px; border-radius: 8px; height: 52px; box-sizing: border-box;">
+                            <button id="view-calendar" class="va-view-toggle active" style="padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; background: white; color: #495057; transition: all 0.2s; height: 44px; display: inline-flex; align-items: center; justify-content: center;">Kalender</button>
+                            <button id="view-list" class="va-view-toggle" style="padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; background: transparent; color: #6c757d; transition: all 0.2s; height: 44px; display: inline-flex; align-items: center; justify-content: center;">Liste</button>
+                        </div>
+                        <?php if($can_create): ?>
+                        <button id="toggle-booking-form" class="va-btn" style="background: var(--va-accent, #6366f1); flex: 0 0 auto; white-space: nowrap;">+ Termin erstellen</button>
+                        <?php endif; ?>
                     </div>
-                    <div style="margin-left: 30px;">
-                        <button id="load-appointments" class="va-btn">Termine laden</button>
-                    </div>
-                    <?php if($can_create): ?>
-                    <div style="margin-left: auto;">
-                        <button id="toggle-booking-form" class="va-btn" style="background: var(--va-accent, #6366f1);">+ Termin erstellen</button>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
                 <?php if($can_create): ?>
@@ -3182,8 +3188,14 @@ class Valcode_Appoint {
                 </div>
                 <?php endif; ?>
 
-                <div id="appointments-list">
-                    <p style="text-align: center; color: #999; padding: 20px 0;">Lade Termine...</p>
+                <div id="calendar-view" style="display: block;">
+                    <div id="calendar-container"></div>
+                </div>
+
+                <div id="list-view" style="display: none;">
+                    <div id="appointments-list">
+                        <p style="text-align: center; color: #999; padding: 20px 0;">Lade Termine...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3193,6 +3205,13 @@ class Valcode_Appoint {
             var logoutBtn = document.getElementById('va-staff-logout');
             var loadBtn = document.getElementById('load-appointments');
             var listDiv = document.getElementById('appointments-list');
+            var calendarContainer = document.getElementById('calendar-container');
+            var calendarView = document.getElementById('calendar-view');
+            var listView = document.getElementById('list-view');
+            var viewCalendarBtn = document.getElementById('view-calendar');
+            var viewListBtn = document.getElementById('view-list');
+            var currentView = 'calendar';
+            var appointmentsData = [];
 
             // Logout functionality
             if(logoutBtn){
@@ -3214,12 +3233,41 @@ class Valcode_Appoint {
                 });
             }
 
+            // View toggle functionality
+            if(viewCalendarBtn && viewListBtn){
+                viewCalendarBtn.addEventListener('click', function(){
+                    currentView = 'calendar';
+                    calendarView.style.display = 'block';
+                    listView.style.display = 'none';
+                    viewCalendarBtn.style.background = 'white';
+                    viewCalendarBtn.style.color = '#495057';
+                    viewListBtn.style.background = 'transparent';
+                    viewListBtn.style.color = '#6c757d';
+                    renderCalendar();
+                });
+
+                viewListBtn.addEventListener('click', function(){
+                    currentView = 'list';
+                    calendarView.style.display = 'none';
+                    listView.style.display = 'block';
+                    viewListBtn.style.background = 'white';
+                    viewListBtn.style.color = '#495057';
+                    viewCalendarBtn.style.background = 'transparent';
+                    viewCalendarBtn.style.color = '#6c757d';
+                    renderList();
+                });
+            }
+
             // Load appointments
             function loadAppointments(){
                 var fromDate = document.getElementById('filter-from').value;
                 var toDate = document.getElementById('filter-to').value;
 
-                listDiv.innerHTML = '<p>Lade Termine...</p>';
+                if(currentView === 'calendar'){
+                    calendarContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px 0;">Lade Termine...</p>';
+                } else {
+                    listDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 20px 0;">Lade Termine...</p>';
+                }
 
                 var fd = new FormData();
                 fd.append('action', 'valcode_staff_get_appointments');
@@ -3234,56 +3282,146 @@ class Valcode_Appoint {
                 .then(function(r){ return r.json(); })
                 .then(function(res){
                     if(res.success && res.data.appointments){
-                        var appts = res.data.appointments;
-                        var canViewAll = res.data.can_view_all;
+                        appointmentsData = res.data.appointments;
+                        window.canViewAll = res.data.can_view_all;
 
-                        if(appts.length === 0){
-                            listDiv.innerHTML = '<p style="text-align: center; color: var(--va-text-muted, #999);">Keine Termine gefunden.</p>';
+                        if(appointmentsData.length === 0){
+                            var msg = '<p style="text-align: center; color: #999; padding: 20px 0;">Keine Termine gefunden.</p>';
+                            if(currentView === 'calendar'){
+                                calendarContainer.innerHTML = msg;
+                            } else {
+                                listDiv.innerHTML = msg;
+                            }
                             return;
                         }
 
-                        var gradStart = '<?php echo esc_js($gradient_start); ?>';
-                        var gradEnd = '<?php echo esc_js($gradient_end); ?>';
-
-                        var html = '<div style="overflow-x: auto; margin-top: 20px;">';
-                        html += '<table style="width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);"><thead><tr style="background: linear-gradient(135deg, ' + gradStart + ' 0%, ' + gradEnd + ' 100%); color: white;">';
-                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Datum</th>';
-                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Zeit</th>';
-                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Kunde</th>';
-                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Service</th>';
-                        if(canViewAll) {
-                            html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Mitarbeiter</th>';
+                        if(currentView === 'calendar'){
+                            renderCalendar();
+                        } else {
+                            renderList();
                         }
-                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Dauer</th>';
-                        html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Status</th>';
-                        html += '</tr></thead><tbody>';
-
-                        appts.forEach(function(a, idx){
-                            var startDate = new Date(a.starts_at);
-                            var endDate = new Date(a.ends_at);
-                            var rowBg = idx % 2 === 0 ? '#f8f9fa' : 'white';
-                            html += '<tr style="background: ' + rowBg + '; transition: background 0.2s;" onmouseover="this.style.background=\'#e9ecef\'" onmouseout="this.style.background=\'' + rowBg + '\'">';
-                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + startDate.toLocaleDateString('de-DE') + '</td>';
-                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + startDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + ' - ' + endDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + '</td>';
-                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.customer_name || 'N/A') + '<br><small style="color: #6c757d; margin-top: 4px; display: block;">' + (a.customer_email || '') + '</small></td>';
-                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.service_name || 'N/A') + '</td>';
-                            if(canViewAll) {
-                                html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.staff_name || 'N/A') + '</td>';
-                            }
-                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.duration_minutes || 0) + ' Min</td>';
-                            html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;"><span style="padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; background: ' + (a.status === 'confirmed' ? '#d4edda' : a.status === 'pending' ? '#fff3cd' : '#f8d7da') + '; color: ' + (a.status === 'confirmed' ? '#155724' : a.status === 'pending' ? '#856404' : '#721c24') + ';">' + a.status + '</span></td>';
-                            html += '</tr>';
-                        });
-
-                        html += '</tbody></table></div>';
-                        listDiv.innerHTML = html;
                     } else {
-                        listDiv.innerHTML = '<p style="text-align: center; color: var(--va-error, #e74c3c);">Fehler beim Laden der Termine.</p>';
+                        var errMsg = '<p style="text-align: center; color: #e74c3c; padding: 20px 0;">Fehler beim Laden der Termine.</p>';
+                        if(currentView === 'calendar'){
+                            calendarContainer.innerHTML = errMsg;
+                        } else {
+                            listDiv.innerHTML = errMsg;
+                        }
                     }
                 })
                 .catch(function(){
-                    listDiv.innerHTML = '<p>Fehler beim Laden der Termine.</p>';
+                    var errMsg = '<p style="text-align: center; color: #e74c3c; padding: 20px 0;">Fehler beim Laden der Termine.</p>';
+                    if(currentView === 'calendar'){
+                        calendarContainer.innerHTML = errMsg;
+                    } else {
+                        listDiv.innerHTML = errMsg;
+                    }
                 });
+            }
+
+            // Render calendar view
+            function renderCalendar(){
+                if(appointmentsData.length === 0){
+                    calendarContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px 0;">Keine Termine gefunden.</p>';
+                    return;
+                }
+
+                var gradStart = '<?php echo esc_js($gradient_start); ?>';
+                var gradEnd = '<?php echo esc_js($gradient_end); ?>';
+
+                // Group appointments by date
+                var byDate = {};
+                appointmentsData.forEach(function(a){
+                    var date = a.starts_at.split(' ')[0];
+                    if(!byDate[date]) byDate[date] = [];
+                    byDate[date].push(a);
+                });
+
+                var html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; margin-top: 20px;">';
+
+                Object.keys(byDate).sort().forEach(function(date){
+                    var appts = byDate[date];
+                    var dateObj = new Date(date + 'T00:00:00');
+                    var dateStr = dateObj.toLocaleDateString('de-DE', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+
+                    html += '<div style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;">';
+                    html += '<div style="background: linear-gradient(135deg, ' + gradStart + ' 0%, ' + gradEnd + ' 100%); color: white; padding: 15px 20px;">';
+                    html += '<h4 style="margin: 0; font-size: 16px; font-weight: 600;">' + dateStr + '</h4>';
+                    html += '</div>';
+                    html += '<div style="padding: 15px;">';
+
+                    appts.forEach(function(a, idx){
+                        var startDate = new Date(a.starts_at);
+                        var endDate = new Date(a.ends_at);
+                        var statusBg = a.status === 'confirmed' ? '#d4edda' : a.status === 'pending' ? '#fff3cd' : '#f8d7da';
+                        var statusColor = a.status === 'confirmed' ? '#155724' : a.status === 'pending' ? '#856404' : '#721c24';
+
+                        if(idx > 0) html += '<hr style="border: none; border-top: 1px solid #e9ecef; margin: 12px 0;">';
+
+                        html += '<div style="margin: 10px 0;">';
+                        html += '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">';
+                        html += '<strong style="color: #495057; font-size: 14px;">' + startDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + ' - ' + endDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + '</strong>';
+                        html += '<span style="padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: ' + statusBg + '; color: ' + statusColor + ';">' + a.status + '</span>';
+                        html += '</div>';
+                        html += '<div style="font-size: 14px; color: #6c757d; line-height: 1.6;">';
+                        html += '<div><strong>' + (a.customer_name || 'N/A') + '</strong></div>';
+                        html += '<div>' + (a.service_name || 'N/A') + ' (' + (a.duration_minutes || 0) + ' Min)</div>';
+                        if(window.canViewAll && a.staff_name){
+                            html += '<div style="font-size: 12px; margin-top: 4px;">Mitarbeiter: ' + a.staff_name + '</div>';
+                        }
+                        html += '</div>';
+                        html += '</div>';
+                    });
+
+                    html += '</div></div>';
+                });
+
+                html += '</div>';
+                calendarContainer.innerHTML = html;
+            }
+
+            // Render list view
+            function renderList(){
+                if(appointmentsData.length === 0){
+                    listDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 20px 0;">Keine Termine gefunden.</p>';
+                    return;
+                }
+
+                var gradStart = '<?php echo esc_js($gradient_start); ?>';
+                var gradEnd = '<?php echo esc_js($gradient_end); ?>';
+
+                var html = '<div style="overflow-x: auto; margin-top: 20px;">';
+                html += '<table style="width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);"><thead><tr style="background: linear-gradient(135deg, ' + gradStart + ' 0%, ' + gradEnd + ' 100%); color: white;">';
+                html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Datum</th>';
+                html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Zeit</th>';
+                html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Kunde</th>';
+                html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Service</th>';
+                if(window.canViewAll) {
+                    html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Mitarbeiter</th>';
+                }
+                html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Dauer</th>';
+                html += '<th style="padding: 18px 15px; text-align: left; font-weight: 600;">Status</th>';
+                html += '</tr></thead><tbody>';
+
+                appointmentsData.forEach(function(a, idx){
+                    var startDate = new Date(a.starts_at);
+                    var endDate = new Date(a.ends_at);
+                    var rowBg = idx % 2 === 0 ? '#f8f9fa' : 'white';
+                    html += '<tr style="background: ' + rowBg + '; transition: background 0.2s;" onmouseover="this.style.background=\'#e9ecef\'" onmouseout="this.style.background=\'' + rowBg + '\'">';
+                    html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + startDate.toLocaleDateString('de-DE') + '</td>';
+                    html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + startDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + ' - ' + endDate.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + '</td>';
+                    html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.customer_name || 'N/A') + '<br><small style="color: #6c757d; margin-top: 4px; display: block;">' + (a.customer_email || '') + '</small></td>';
+                    html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.service_name || 'N/A') + '</td>';
+                    if(window.canViewAll) {
+                        html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.staff_name || 'N/A') + '</td>';
+                    }
+                    html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;">' + (a.duration_minutes || 0) + ' Min</td>';
+                    html += '<td style="padding: 15px; border-bottom: 1px solid #dee2e6;"><span style="padding: 6px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; background: ' + (a.status === 'confirmed' ? '#d4edda' : a.status === 'pending' ? '#fff3cd' : '#f8d7da') + '; color: ' + (a.status === 'confirmed' ? '#155724' : a.status === 'pending' ? '#856404' : '#721c24') + ';">' + a.status + '</span></td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                listDiv.innerHTML = html;
             }
 
             if(loadBtn){
