@@ -656,13 +656,34 @@
                     if(successMsg){
                         var serviceName = service.options[service.selectedIndex].text;
                         var workerName = worker.options[worker.selectedIndex].text;
-                        var dateTime = selectedDate + ' um ' + selectedSlot.split(' ')[1].substring(0,5);
 
-                        successMsg.innerHTML = '<strong>Ihre Buchung wurde bestätigt!</strong><br><br>' +
-                            'Service: ' + serviceName + '<br>' +
-                            'Mitarbeiter: ' + workerName + '<br>' +
-                            'Termin: ' + dateTime + '<br><br>' +
-                            'Sie erhalten in Kürze eine Bestätigungs-E-Mail.';
+                        // Format date nicely
+                        var dateObj = new Date(selectedDate);
+                        var formattedDate = dateObj.toLocaleDateString('de-CH', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        var timeStr = selectedSlot.split(' ')[1].substring(0,5);
+
+                        successMsg.innerHTML = '<div style="background: #fff; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">' +
+                            '<p style="font-size: 15px; color: #3c434a; line-height: 2; margin: 0; text-align: left;">' +
+                            '<strong style="color: #1e1e1e; font-size: 16px; display: block; margin-bottom: 12px;">📋 Ihre Buchungsdetails</strong>' +
+                            '<span style="display: block; margin: 8px 0;"><strong style="color: #646970;">Service:</strong> <span style="color: #1e1e1e;">' + serviceName + '</span></span>' +
+                            '<span style="display: block; margin: 8px 0;"><strong style="color: #646970;">Mitarbeiter:</strong> <span style="color: #1e1e1e;">' + workerName + '</span></span>' +
+                            '<span style="display: block; margin: 8px 0;"><strong style="color: #646970;">📅 Datum:</strong> <span style="color: #1e1e1e;">' + formattedDate + '</span></span>' +
+                            '<span style="display: block; margin: 8px 0;"><strong style="color: #646970;">🕐 Uhrzeit:</strong> <span style="color: #2271b1; font-weight: 600;">' + timeStr + ' Uhr</span></span>' +
+                            '</p>' +
+                            '</div>' +
+                            '<p style="font-size: 15px; color: #3c434a; line-height: 1.8; margin: 20px 0 0 0;">' +
+                            '<strong style="color: #1e1e1e; font-size: 16px;">✓ Was passiert jetzt?</strong><br><br>' +
+                            '📧 Sie erhalten in Kürze eine Bestätigungs-E-Mail mit:<br>' +
+                            '• Allen Termindetails<br>' +
+                            '• Einem Kalendereintrag (.ics Datei)<br>' +
+                            '• Link zum Google Kalender<br><br>' +
+                            'Wir freuen uns auf Ihren Besuch!' +
+                            '</p>';
                     }
 
                     // Reset form
