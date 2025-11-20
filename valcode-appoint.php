@@ -35,6 +35,8 @@ class Valcode_Appoint {
         register_activation_hook( __FILE__, [ $this, 'activate' ] );
 
         add_action( 'admin_menu', [ $this, 'admin_menu' ] );
+        add_action( 'admin_notices', [ $this, 'admin_notices' ] );
+        add_action( 'admin_post_valcode_create_reset_page', [ $this, 'handle_create_reset_page' ] );
 
         add_action( 'admin_post_valcode_save_service', [ $this, 'handle_save_service' ] );
         add_action( 'admin_post_valcode_delete_service', [ $this, 'handle_delete_service' ] );
@@ -101,6 +103,9 @@ class Valcode_Appoint {
 
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_public' ] );
+
+        // Handle password reset without requiring specific page
+        add_action( 'template_redirect', [ $this, 'handle_password_reset_redirect' ] );
 
         // SMTP Configuration für E-Mail-Versand
         add_action( 'phpmailer_init', [ $this, 'configure_smtp' ] );
@@ -278,6 +283,58 @@ class Valcode_Appoint {
                 'min_advance_days' => 0,
             ]);
         }
+
+        // Create password reset page if it doesn't exist
+        $reset_page = get_page_by_path('kunden-passwort-zuruecksetzen');
+        if (!$reset_page) {
+            $reset_page_id = wp_insert_post([
+                'post_title'    => 'Passwort zurücksetzen',
+                'post_name'     => 'kunden-passwort-zuruecksetzen',
+                'post_content'  => '[valcode_password_reset]',
+                'post_status'   => 'publish',
+                'post_type'     => 'page',
+                'post_author'   => 1,
+            ]);
+        }
+    }
+
+    public function admin_notices() {
+        // Check if password reset page exists
+        $reset_page = get_page_by_path('kunden-passwort-zuruecksetzen');
+        if (!$reset_page && current_user_can('manage_options')) {
+            ?>
+            <div class="notice notice-warning is-dismissible">
+                <p><strong>Valcode Appoint:</strong> Die Passwort-Reset-Seite fehlt.
+                <a href="<?php echo admin_url('admin-post.php?action=valcode_create_reset_page'); ?>" class="button button-primary" style="margin-left: 10px;">Jetzt erstellen</a></p>
+            </div>
+            <?php
+        }
+    }
+
+    public function handle_create_reset_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+
+        $reset_page = get_page_by_path('kunden-passwort-zuruecksetzen');
+        if (!$reset_page) {
+            $reset_page_id = wp_insert_post([
+                'post_title'    => 'Passwort zurücksetzen',
+                'post_name'     => 'kunden-passwort-zuruecksetzen',
+                'post_content'  => '[valcode_password_reset]',
+                'post_status'   => 'publish',
+                'post_type'     => 'page',
+                'post_author'   => get_current_user_id(),
+            ]);
+
+            if ($reset_page_id) {
+                wp_redirect(admin_url('admin.php?page=valcode-appoint&reset_page_created=1'));
+                exit;
+            }
+        }
+
+        wp_redirect(admin_url('admin.php?page=valcode-appoint'));
+        exit;
     }
 
     public function admin_menu() {
@@ -2455,20 +2512,34 @@ class Valcode_Appoint {
         );
 
         // Send email
+        // Get settings for staff portal URL
+        $settings = get_option('valcode_appoint_settings', []);
+        $staff_portal_url = !empty($settings['staff_portal_url']) ? $settings['staff_portal_url'] : home_url('/mitarbeiter-portal/');
+
         $reset_link = add_query_arg([
             'action' => 'staff_reset',
             'token' => $token
-        ], home_url('/mitarbeiter-passwort-zuruecksetzen/'));
+        ], $staff_portal_url);
 
-        $subject = 'Passwort zurücksetzen';
-        $message = "Hallo {$staff->display_name},\n\n";
-        $message .= "Sie haben eine Passwort-Zurücksetzung angefordert.\n\n";
-        $message .= "Klicken Sie auf folgenden Link, um Ihr Passwort zurückzusetzen:\n";
-        $message .= $reset_link . "\n\n";
-        $message .= "Dieser Link ist 1 Stunde gültig.\n\n";
-        $message .= "Falls Sie diese E-Mail nicht angefordert haben, ignorieren Sie sie einfach.";
+        $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+        $subject = 'Passwort zurücksetzen – ' . $blogname;
 
-        wp_mail($staff->email, $subject, $message);
+        // Get email settings
+        $from_email = !empty($settings['smtp_user']) ? $settings['smtp_user'] : 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
+        $from_name = !empty($settings['smtp_from_name']) ? $settings['smtp_from_name'] : $blogname;
+
+        $message = '<p>Hallo ' . esc_html($staff->display_name) . ',</p>';
+        $message .= '<p>Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.</p>';
+        $message .= '<p><a href="' . esc_url($reset_link) . '">Klicken Sie hier, um Ihr Passwort zurückzusetzen</a></p>';
+        $message .= '<p>Dieser Link ist 1 Stunde gültig.</p>';
+        $message .= '<p>Falls Sie diese Anfrage nicht gestellt haben, ignorieren Sie diese E-Mail.</p>';
+
+        $headers = [
+            'Content-Type: text/html; charset=UTF-8',
+            'From: ' . $from_name . ' <' . $from_email . '>'
+        ];
+
+        wp_mail($staff->email, $subject, $message, $headers);
 
         wp_send_json_success(['message'=>'Passwort-Zurücksetzungs-Link wurde an Ihre E-Mail gesendet.']);
     }
@@ -2893,7 +2964,9 @@ class Valcode_Appoint {
         $from_email = !empty($settings['smtp_user']) ? $settings['smtp_user'] : 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
         $from_name = !empty($settings['smtp_from_name']) ? $settings['smtp_from_name'] : $blogname;
 
-        $reset_link = home_url('?valcode_reset=' . $token);
+        // Get the password reset page URL from settings, fallback to home URL with parameter
+        $reset_page_url = !empty($settings['password_reset_page_url']) ? $settings['password_reset_page_url'] : home_url('/kunden-passwort-zuruecksetzen/');
+        $reset_link = add_query_arg('valcode_reset', $token, $reset_page_url);
 
         $subject = 'Passwort zurücksetzen – ' . $blogname;
         $message = '<p>Hallo ' . esc_html($customer->first_name) . ',</p>';
@@ -2955,13 +3028,33 @@ class Valcode_Appoint {
         wp_send_json_success(['message'=>'Passwort wurde erfolgreich zurückgesetzt. Sie können sich jetzt anmelden.']);
     }
 
-    // Shortcode for password reset page
-    public function shortcode_password_reset( $atts ) {
-        // Get token from URL
-        $token = isset($_GET['valcode_reset']) ? sanitize_text_field($_GET['valcode_reset']) : '';
+    // Handle password reset redirect - works on any page
+    public function handle_password_reset_redirect() {
+        // Only handle if valcode_reset parameter is present
+        if ( ! isset($_GET['valcode_reset']) ) {
+            return;
+        }
+
+        // Enqueue styles and scripts
+        wp_enqueue_style( 'valcode-appoint-public' );
+        wp_enqueue_script( 'valcode-appoint' );
+
+        // Get the reset content
+        $content = $this->render_password_reset_page();
+
+        // Output a complete HTML page
+        wp_head();
+        echo $content;
+        wp_footer();
+        exit;
+    }
+
+    // Render password reset page (used by both shortcode and redirect)
+    private function render_password_reset_page() {
+        $token = sanitize_text_field($_GET['valcode_reset']);
 
         if (!$token) {
-            return '<div class="va-booking-form va-card"><p class="va-error">Ungültiger Reset-Link.</p></div>';
+            return '<div class="va-booking-form va-card"><p class="va-msg err">Ungültiger Reset-Link.</p></div>';
         }
 
         // Verify token exists and is not expired
@@ -2972,7 +3065,7 @@ class Valcode_Appoint {
         ));
 
         if (!$customer) {
-            return '<div class="va-booking-form va-card"><p class="va-error">Dieser Reset-Link ist ungültig oder abgelaufen.</p></div>';
+            return '<div class="va-booking-form va-card"><p class="va-msg err">Dieser Reset-Link ist ungültig oder abgelaufen.</p></div>';
         }
 
         ob_start();
@@ -2993,7 +3086,7 @@ class Valcode_Appoint {
 
             <button type="button" id="va_reset_password_btn" class="va-btn">Passwort zurücksetzen</button>
 
-            <div id="va_reset_result" style="margin-top: 16px;"></div>
+            <div id="va_reset_result" style="margin-top: 16px; display: none;"></div>
         </div>
 
         <script>
@@ -3003,28 +3096,38 @@ class Valcode_Appoint {
             var newPass = document.getElementById('va_new_password');
             var confirmPass = document.getElementById('va_new_password_confirm');
 
+            function showMessage(text, isSuccess){
+                result.textContent = text;
+                result.className = 'va-msg ' + (isSuccess ? 'ok' : 'err');
+                result.style.display = 'block';
+            }
+
+            function hideMessage(){
+                result.style.display = 'none';
+                result.textContent = '';
+                result.className = '';
+            }
+
             if(btn){
                 btn.addEventListener('click', function(){
                     if(!newPass.value || !confirmPass.value){
-                        result.textContent = 'Bitte beide Felder ausfüllen.';
-                        result.className = 'va-msg err';
+                        showMessage('Bitte beide Felder ausfüllen.', false);
                         return;
                     }
 
                     if(newPass.value !== confirmPass.value){
-                        result.textContent = 'Passwörter stimmen nicht überein.';
-                        result.className = 'va-msg err';
+                        showMessage('Passwörter stimmen nicht überein.', false);
                         return;
                     }
 
                     if(newPass.value.length < 6){
-                        result.textContent = 'Passwort muss mindestens 6 Zeichen lang sein.';
-                        result.className = 'va-msg err';
+                        showMessage('Passwort muss mindestens 6 Zeichen lang sein.', false);
                         return;
                     }
 
                     btn.disabled = true;
                     btn.textContent = 'Wird gespeichert...';
+                    hideMessage();
 
                     var fd = new FormData();
                     fd.append('action', 'valcode_customer_reset_password');
@@ -3040,23 +3143,20 @@ class Valcode_Appoint {
                     .then(function(r){ return r.json(); })
                     .then(function(res){
                         if(res && res.success){
-                            result.textContent = res.data.message || 'Passwort wurde zurückgesetzt!';
-                            result.className = 'va-msg ok';
+                            showMessage(res.data.message || 'Passwort wurde zurückgesetzt!', true);
                             newPass.value = '';
                             confirmPass.value = '';
                             setTimeout(function(){
                                 window.location.href = '<?php echo home_url(); ?>';
                             }, 2000);
                         } else {
-                            result.textContent = res && res.data && res.data.message ? res.data.message : 'Fehler beim Zurücksetzen.';
-                            result.className = 'va-msg err';
+                            showMessage(res && res.data && res.data.message ? res.data.message : 'Fehler beim Zurücksetzen.', false);
                             btn.disabled = false;
                             btn.textContent = 'Passwort zurücksetzen';
                         }
                     })
                     .catch(function(){
-                        result.textContent = 'Fehler beim Zurücksetzen.';
-                        result.className = 'va-msg err';
+                        showMessage('Fehler beim Zurücksetzen.', false);
                         btn.disabled = false;
                         btn.textContent = 'Passwort zurücksetzen';
                     });
@@ -3066,6 +3166,11 @@ class Valcode_Appoint {
         </script>
         <?php
         return ob_get_clean();
+    }
+
+    // Shortcode for password reset page
+    public function shortcode_password_reset( $atts ) {
+        return $this->render_password_reset_page();
     }
 
     // Unified Staff Portal Shortcode
@@ -3153,6 +3258,7 @@ class Valcode_Appoint {
 
                 fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     body: fd
                 })
                 .then(function(r){ return r.json(); })
@@ -3318,6 +3424,7 @@ class Valcode_Appoint {
 
                     fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         body: fd
                     })
                     .then(function(r){ return r.json(); })
@@ -3373,6 +3480,7 @@ class Valcode_Appoint {
 
                 fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     body: fd
                 })
                 .then(function(r){ return r.json(); })
@@ -3699,6 +3807,7 @@ class Valcode_Appoint {
 
                 fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     body: fd
                 })
                 .then(function(r){ return r.json(); })
@@ -3728,10 +3837,33 @@ class Valcode_Appoint {
     }
 
     private function render_staff_password_reset_form($token) {
+        // Verify token exists and is valid
+        global $wpdb;
+        $staff = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->tables['staff']} WHERE reset_token=%s AND reset_expires > NOW()",
+            $token
+        ));
+
+        if ( ! $staff ) {
+            ob_start(); ?>
+            <div class="va-booking-form">
+                <div class="va-step">
+                    <h3 style="margin-bottom: 30px;">Ungültiger Link</h3>
+                    <p class="va-msg err">Dieser Passwort-Zurücksetzungs-Link ist ungültig oder abgelaufen.</p>
+                    <p style="text-align: center; margin-top: 30px;">
+                        <a href="<?php echo esc_url(remove_query_arg(['action', 'token'])); ?>" class="va-btn">Zurück zum Login</a>
+                    </p>
+                </div>
+            </div>
+            <?php
+            return ob_get_clean();
+        }
+
         ob_start(); ?>
         <div class="va-booking-form">
             <div class="va-step">
                 <h3 style="margin-bottom: 30px;">Neues Passwort setzen</h3>
+                <p style="margin-bottom: 25px;">Setzen Sie ein neues Passwort für: <strong><?php echo esc_html($staff->email); ?></strong></p>
                 <form id="va-staff-reset-form">
                     <input type="hidden" id="reset-token" value="<?php echo esc_attr($token); ?>">
                     <div class="va-field" style="margin-bottom: 25px;">
@@ -3781,6 +3913,7 @@ class Valcode_Appoint {
 
                 fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     body: fd
                 })
                 .then(function(r){ return r.json(); })
