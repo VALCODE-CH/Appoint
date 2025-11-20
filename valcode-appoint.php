@@ -37,6 +37,7 @@ class Valcode_Appoint {
         add_action( 'admin_menu', [ $this, 'admin_menu' ] );
         add_action( 'admin_notices', [ $this, 'admin_notices' ] );
         add_action( 'admin_post_valcode_create_reset_page', [ $this, 'handle_create_reset_page' ] );
+        add_action( 'admin_post_valcode_create_staff_portal_page', [ $this, 'handle_create_staff_portal_page' ] );
 
         add_action( 'admin_post_valcode_save_service', [ $this, 'handle_save_service' ] );
         add_action( 'admin_post_valcode_delete_service', [ $this, 'handle_delete_service' ] );
@@ -296,6 +297,19 @@ class Valcode_Appoint {
                 'post_author'   => 1,
             ]);
         }
+
+        // Create staff portal page if it doesn't exist
+        $staff_portal_page = get_page_by_path('mitarbeiter-portal');
+        if (!$staff_portal_page) {
+            $staff_portal_page_id = wp_insert_post([
+                'post_title'    => 'Mitarbeiter Portal',
+                'post_name'     => 'mitarbeiter-portal',
+                'post_content'  => '[valcode_staff_portal]',
+                'post_status'   => 'publish',
+                'post_type'     => 'page',
+                'post_author'   => 1,
+            ]);
+        }
     }
 
     public function admin_notices() {
@@ -306,6 +320,17 @@ class Valcode_Appoint {
             <div class="notice notice-warning is-dismissible">
                 <p><strong>Valcode Appoint:</strong> Die Passwort-Reset-Seite fehlt.
                 <a href="<?php echo admin_url('admin-post.php?action=valcode_create_reset_page'); ?>" class="button button-primary" style="margin-left: 10px;">Jetzt erstellen</a></p>
+            </div>
+            <?php
+        }
+
+        // Check if staff portal page exists
+        $staff_portal_page = get_page_by_path('mitarbeiter-portal');
+        if (!$staff_portal_page && current_user_can('manage_options')) {
+            ?>
+            <div class="notice notice-warning is-dismissible">
+                <p><strong>Valcode Appoint:</strong> Die Mitarbeiter-Portal-Seite fehlt.
+                <a href="<?php echo admin_url('admin-post.php?action=valcode_create_staff_portal_page'); ?>" class="button button-primary" style="margin-left: 10px;">Jetzt erstellen</a></p>
             </div>
             <?php
         }
@@ -329,6 +354,32 @@ class Valcode_Appoint {
 
             if ($reset_page_id) {
                 wp_redirect(admin_url('admin.php?page=valcode-appoint&reset_page_created=1'));
+                exit;
+            }
+        }
+
+        wp_redirect(admin_url('admin.php?page=valcode-appoint'));
+        exit;
+    }
+
+    public function handle_create_staff_portal_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+
+        $staff_portal_page = get_page_by_path('mitarbeiter-portal');
+        if (!$staff_portal_page) {
+            $staff_portal_page_id = wp_insert_post([
+                'post_title'    => 'Mitarbeiter Portal',
+                'post_name'     => 'mitarbeiter-portal',
+                'post_content'  => '[valcode_staff_portal]',
+                'post_status'   => 'publish',
+                'post_type'     => 'page',
+                'post_author'   => get_current_user_id(),
+            ]);
+
+            if ($staff_portal_page_id) {
+                wp_redirect(admin_url('admin.php?page=valcode-appoint&staff_portal_page_created=1'));
                 exit;
             }
         }
