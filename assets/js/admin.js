@@ -18,7 +18,7 @@
             var items = (res && res.success && res.data && res.data.workers) ? res.data.workers : [];
             var html = '<option value="0">-</option>';
             html += '<option value="">' + (items.length ? 'Bitte wählen…' : 'Keine Mitarbeiter verfügbar') + '</option>';
-            items.forEach(function(it){ html += '<option value="'+it.id+'">'+it.name+'</option>'; });
+            items.forEach(function(it){ html += '<option value="'+it.id+'">'+it.display_name+'</option>'; });
             $worker.html(html).prop('disabled', items.length === 0);
         }).fail(function(){
             $worker.html('<option value="">Fehler beim Laden</option>').prop('disabled', true);
