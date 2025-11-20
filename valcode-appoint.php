@@ -3318,7 +3318,7 @@ class Valcode_Appoint {
                         result.textContent = res.data.message;
                         result.className = 'va-msg success';
                         setTimeout(function(){
-                            window.location.href = window.location.pathname;
+                            window.location.reload();
                         }, 1000);
                     } else {
                         result.textContent = res.data && res.data.message ? res.data.message : 'Anmeldung fehlgeschlagen.';
