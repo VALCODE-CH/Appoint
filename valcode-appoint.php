@@ -1148,6 +1148,7 @@ class Valcode_Appoint {
                 initialView: 'dayGridMonth',
                 height: 'auto',
                 locale: 'de',
+                firstDay: 1,
                 nowIndicator: true,
                 buttonText: {
                     today: 'Heute',
