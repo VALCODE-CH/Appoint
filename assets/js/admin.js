@@ -162,4 +162,41 @@
             }, 500);
         }
     }
+
+    // CSV Import Modal functionality
+    var $importModal = $('#va-import-modal');
+
+    // Open import modal
+    $(document).on('click', '#va-open-import-modal', function(e){
+        e.preventDefault();
+        $importModal.fadeIn(200);
+        $('body').css('overflow', 'hidden');
+    });
+
+    // Close import modal
+    $(document).on('click', '.va-modal-close, #va-import-cancel', function(e){
+        e.preventDefault();
+        closeImportModal();
+    });
+
+    // Close modal on outside click
+    $(document).on('click', '#va-import-modal', function(e){
+        if(e.target.id === 'va-import-modal'){
+            closeImportModal();
+        }
+    });
+
+    // Close modal on ESC key
+    $(document).keydown(function(e){
+        if(e.key === 'Escape' && $importModal.is(':visible')){
+            closeImportModal();
+        }
+    });
+
+    function closeImportModal() {
+        $importModal.fadeOut(200);
+        $('body').css('overflow', '');
+        // Reset file input
+        $('#csv_file').val('');
+    }
 })(jQuery);

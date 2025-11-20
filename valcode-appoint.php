@@ -689,16 +689,10 @@ class Valcode_Appoint {
                     <hr style="margin: 30px 0;"/>
 
                     <h2>Kunden importieren (CSV)</h2>
-                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" enctype="multipart/form-data" class="va-form">
-                        <?php wp_nonce_field( 'valcode_import_customers', '_va' ); ?>
-                        <input type="hidden" name="action" value="valcode_import_customers"/>
-                        <div class="va-field">
-                            <label for="csv_file">CSV-Datei auswählen</label>
-                            <input type="file" name="csv_file" id="csv_file" accept=".csv,.txt" required/>
-                            <p class="description">Format: Vorname, Nachname, E-Mail, Telefon, Notizen (Kopfzeile optional)</p>
-                        </div>
-                        <div class="va-actions"><button class="button" type="submit">Importieren</button></div>
-                    </form>
+                    <button id="va-open-import-modal" class="button" type="button">
+                        <span class="dashicons dashicons-upload" style="vertical-align: middle; margin-top: 3px;"></span>
+                        CSV importieren
+                    </button>
                 </div>
 
                 <div class="va-card">
@@ -734,6 +728,29 @@ class Valcode_Appoint {
                         <?php endif; ?>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- CSV Import Modal -->
+            <div id="va-import-modal" class="va-modal">
+                <div class="va-modal-content">
+                    <div class="va-modal-header">
+                        <h2>Kunden importieren (CSV)</h2>
+                        <button class="va-modal-close" type="button">&times;</button>
+                    </div>
+                    <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" enctype="multipart/form-data" class="va-form">
+                        <?php wp_nonce_field( 'valcode_import_customers', '_va' ); ?>
+                        <input type="hidden" name="action" value="valcode_import_customers"/>
+                        <div class="va-field">
+                            <label for="csv_file">CSV-Datei auswählen</label>
+                            <input type="file" name="csv_file" id="csv_file" accept=".csv,.txt" required/>
+                            <p class="description">Format: Vorname, Nachname, E-Mail, Telefon, Notizen (Kopfzeile optional)</p>
+                        </div>
+                        <div class="va-actions">
+                            <button class="button button-primary" type="submit">Importieren</button>
+                            <button id="va-import-cancel" class="button" type="button">Abbrechen</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div><?php
