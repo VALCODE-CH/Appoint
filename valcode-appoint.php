@@ -105,11 +105,37 @@ class Valcode_Appoint {
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_public' ] );
 
+        // Start session early for theme compatibility
+        add_action( 'init', [ $this, 'start_session' ] );
+
         // Handle password reset without requiring specific page
         add_action( 'template_redirect', [ $this, 'handle_password_reset_redirect' ] );
 
         // SMTP Configuration für E-Mail-Versand
         add_action( 'phpmailer_init', [ $this, 'configure_smtp' ] );
+    }
+
+    /**
+     * Start session early for theme compatibility
+     */
+    public function start_session() {
+        if ( ! session_id() && ! headers_sent() ) {
+            // Configure session for better cross-theme compatibility
+            $cookie_params = session_get_cookie_params();
+            $cookie_path = defined('COOKIEPATH') ? COOKIEPATH : '/';
+            $cookie_domain = defined('COOKIE_DOMAIN') ? COOKIE_DOMAIN : '';
+            $is_secure = function_exists('is_ssl') ? is_ssl() : isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+
+            session_set_cookie_params([
+                'lifetime' => $cookie_params['lifetime'],
+                'path' => $cookie_path,
+                'domain' => $cookie_domain,
+                'secure' => $is_secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+            session_start();
+        }
     }
 
     /**
