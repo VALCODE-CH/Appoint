@@ -195,12 +195,21 @@ input {
   display:block; 
 }
 
-.va-step { 
-  background:#fff; 
-  padding:32px; 
-  border-radius: var(--va-radius,14px); 
+.va-step {
+  background:#fff;
+  padding:32px;
+  border-radius: var(--va-radius,14px);
   box-shadow: 0 4px 20px rgba(0,0,0,.08);
   min-height: 500px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.va-step > * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .va-step h3{
@@ -233,6 +242,13 @@ input {
 }
 
 /* Calendar Widget - Wider */
+#va_calendar{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .va-calendar-widget{
   background: #fff;
   border-radius: calc(var(--va-radius) - 2px);
@@ -240,6 +256,9 @@ input {
   border: 1px solid var(--va-border);
   max-width: 1000px; /* Added max-width for wider calendar */
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .va-calendar-header{
@@ -247,6 +266,8 @@ input {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .va-calendar-header h4{
@@ -283,6 +304,8 @@ input {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px; /* Increased gap */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .va-calendar-day-header{
@@ -291,6 +314,11 @@ input {
   font-weight: 600;
   color: var(--va-text-secondary, #6b7280);
   padding: 12px 4px; /* Increased padding */
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .va-calendar-day{
@@ -305,6 +333,10 @@ input {
   transition: all 0.2s ease;
   border: 2px solid transparent;
   min-height: 50px; /* Minimum height for better clickability */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .va-calendar-day:hover:not(.disabled):not(.other-month):not(.checking){
@@ -346,11 +378,20 @@ input {
 }
 
 /* Time Slots - Wider grid */
+#va_slots{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .va-slots-grid{
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Wider slots */
   gap: 14px; /* Increased gap */
   margin-top: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .va-slot-btn{
@@ -544,7 +585,13 @@ input {
 
   .va-calendar-widget{
     max-width: 100%;
+    width: 100%;
     padding: 16px;
+    box-sizing: border-box;
+  }
+
+  .va-calendar-header{
+    flex-wrap: wrap;
   }
 
   .va-calendar-header h4{
@@ -553,16 +600,20 @@ input {
 
   .va-calendar-grid{
     gap: 4px;
+    width: 100%;
   }
 
   .va-calendar-day{
     font-size: 14px;
     min-height: 40px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .va-calendar-day-header{
     font-size: 12px;
     padding: 8px 2px;
+    width: 100%;
   }
 
   .va-step{
@@ -618,30 +669,41 @@ input {
   .va-slots-grid{
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
+    width: 100%;
   }
 
   .va-slot-btn{
     padding: 12px 8px;
     font-size: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .va-calendar-widget{
     padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .va-calendar-grid{
     gap: 3px;
+    width: 100%;
   }
 
   .va-calendar-day{
     font-size: 13px;
     min-height: 36px;
     border-radius: 6px;
+    width: 100%;
+    max-width: 100%;
+    padding: 2px;
   }
 
   .va-calendar-day-header{
     font-size: 11px;
     padding: 6px 2px;
+    width: 100%;
   }
 
   .va-calendar-nav button{
@@ -718,46 +780,67 @@ input {
   }
 
   .va-calendar-widget{
-    padding: 10px;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .va-calendar-header{
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .va-calendar-header h4{
-    font-size: 16px;
+    font-size: 15px;
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .va-calendar-nav{
+    flex: 1 1 100%;
+    justify-content: center;
   }
 
   .va-calendar-grid{
-    gap: 2px;
+    gap: 1px;
+    width: 100%;
   }
 
   .va-calendar-day{
-    font-size: 12px;
-    min-height: 32px;
-    border-radius: 4px;
+    font-size: 11px;
+    min-height: 28px;
+    border-radius: 3px;
+    width: 100%;
+    max-width: 100%;
+    padding: 1px;
+    border-width: 1px;
   }
 
   .va-calendar-day-header{
-    font-size: 10px;
-    padding: 4px 1px;
+    font-size: 9px;
+    padding: 3px 0px;
+    width: 100%;
   }
 
   .va-calendar-nav button{
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
   }
 
   .va-slots-grid{
     grid-template-columns: repeat(2, 1fr);
     gap: 6px;
+    width: 100%;
   }
 
   .va-slot-btn{
     padding: 10px 6px;
     font-size: 13px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .va-booking-form select,
@@ -1240,6 +1323,55 @@ input {
 
   .va-auth-form{
     padding: 12px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 360px){
+  .va-calendar-widget{
+    padding: 6px;
+  }
+
+  .va-calendar-header h4{
+    font-size: 14px;
+  }
+
+  .va-calendar-grid{
+    gap: 1px;
+  }
+
+  .va-calendar-day{
+    font-size: 10px;
+    min-height: 26px;
+    border-radius: 2px;
+    padding: 0;
+  }
+
+  .va-calendar-day-header{
+    font-size: 8px;
+    padding: 2px 0px;
+  }
+
+  .va-calendar-nav button{
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+}
+
+/* Landscape orientation on small devices */
+@media (max-height: 600px) and (orientation: landscape){
+  .va-calendar-widget{
+    padding: 12px;
+  }
+
+  .va-calendar-day{
+    min-height: 35px;
+    font-size: 12px;
+  }
+
+  .va-step{
+    min-height: 250px;
   }
 }
 
