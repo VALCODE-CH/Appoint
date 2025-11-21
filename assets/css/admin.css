@@ -9,6 +9,7 @@
 .va-form input[type="text"],
 .va-form input[type="email"],
 .va-form input[type="number"],
+.va-form input[type="password"],
 .va-form input[type="datetime-local"],
 .va-form input[type="time"],
 .va-form textarea,
