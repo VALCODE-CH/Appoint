@@ -11,6 +11,17 @@
   --va-text-secondary:#6b7280;
 }
 
+/* Prevent horizontal overflow on mobile */
+*,
+*::before,
+*::after{
+  box-sizing: border-box;
+}
+
+.va-booking-form *{
+  max-width: 100%;
+}
+
 .va-card{ 
   background:#fff; 
   border:1px solid var(--va-border); 
@@ -18,11 +29,13 @@
   box-shadow: 0 1px 2px rgba(2,6,23,.06); 
 }
 
-.va-booking-form{ 
-  font-family: var(--va-font); 
-  padding:18px; 
+.va-booking-form{
+  font-family: var(--va-font);
+  padding:18px;
   max-width: 1200px; /* Increased from 720px */
-  margin: 10px auto; 
+  margin: 10px auto;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .va-form-grid{ 
@@ -152,12 +165,29 @@ input {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.va-msg{ 
-  margin-top:16px; 
+.va-msg{
+  margin-top:16px;
   font-weight:600;
   padding: 12px 16px;
   border-radius: calc(var(--va-radius) - 2px);
   font-size: 14px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 640px){
+  .va-msg{
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 480px){
+  .va-msg{
+    padding: 8px 10px;
+    font-size: 12px;
+  }
 }
 
 /* Multi-step layout */
@@ -368,6 +398,24 @@ input {
   color: #b91c1c;
 }
 
+@media (max-width: 640px){
+  .va-loading,
+  .va-no-slots,
+  .va-error{
+    padding: 30px 15px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px){
+  .va-loading,
+  .va-no-slots,
+  .va-error{
+    padding: 20px 10px;
+    font-size: 13px;
+  }
+}
+
 /* Success Screen */
 .va-success-content{
   text-align: center;
@@ -481,7 +529,7 @@ input {
   .va-booking-form{
     max-width: 900px;
   }
-  
+
   .va-calendar-widget{
     max-width: 800px;
   }
@@ -490,49 +538,258 @@ input {
 @media (max-width: 768px){
   .va-booking-form{
     max-width: 100%;
-    padding: 16px;
+    padding: 12px;
+    margin: 5px auto;
   }
-  
+
   .va-calendar-widget{
     max-width: 100%;
     padding: 16px;
   }
-  
+
+  .va-calendar-header h4{
+    font-size: 18px;
+  }
+
   .va-calendar-grid{
     gap: 4px;
   }
-  
+
   .va-calendar-day{
     font-size: 14px;
     min-height: 40px;
   }
+
+  .va-calendar-day-header{
+    font-size: 12px;
+    padding: 8px 2px;
+  }
+
+  .va-step{
+    padding: 20px 16px;
+    min-height: 400px;
+  }
+
+  .va-step h3{
+    font-size: 20px;
+    margin: 0 0 20px 0;
+  }
+
+  .va-form-grid{
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px){
+  .va-booking-form{
+    padding: 8px;
+  }
+
   .va-grid{
     grid-template-columns: 1fr;
   }
 
   .va-step{
-    padding: 24px 16px;
+    padding: 16px 12px;
+    min-height: 350px;
+  }
+
+  .va-step h3{
+    font-size: 18px;
+    margin: 0 0 16px 0;
   }
 
   .va-actions{
     flex-direction: column-reverse;
+    gap: 10px;
   }
 
   .va-btn{
     width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
+    height: 48px;
+  }
+
+  .va-btn.va-prev{
+    padding: 12px 16px;
   }
 
   .va-slots-grid{
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 8px;
   }
 
   .va-slot-btn{
-    padding: 14px 10px;
+    padding: 12px 8px;
     font-size: 14px;
+  }
+
+  .va-calendar-widget{
+    padding: 12px;
+  }
+
+  .va-calendar-grid{
+    gap: 3px;
+  }
+
+  .va-calendar-day{
+    font-size: 13px;
+    min-height: 36px;
+    border-radius: 6px;
+  }
+
+  .va-calendar-day-header{
+    font-size: 11px;
+    padding: 6px 2px;
+  }
+
+  .va-calendar-nav button{
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .va-booking-form select,
+  .va-booking-form input,
+  .va-booking-form textarea{
+    padding: 12px 14px;
+    font-size: 14px;
+    height: 48px;
+  }
+
+  .va-booking-form label{
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .va-success-content h3{
+    font-size: 22px !important;
+  }
+
+  .va-success-content p{
+    font-size: 14px !important;
+  }
+
+  .va-success-icon-circle{
+    width: 100px;
+    height: 100px;
+  }
+
+  .va-checkmark{
+    width: 100px;
+    height: 100px;
+  }
+
+  .va-success-details{
+    padding: 20px !important;
+    font-size: 14px !important;
+  }
+
+  .va-success-details p{
+    font-size: 14px !important;
+  }
+
+  .va-success-details strong{
+    font-size: 15px !important;
+  }
+
+  .va-btn-new{
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 24px !important;
+    font-size: 15px !important;
+  }
+}
+
+@media (max-width: 480px){
+  .va-booking-form{
+    padding: 6px;
+  }
+
+  .va-step{
+    padding: 12px 10px;
+    min-height: 300px;
+  }
+
+  .va-step h3{
+    font-size: 16px;
+    margin: 0 0 14px 0;
+  }
+
+  .va-calendar-widget{
+    padding: 10px;
+  }
+
+  .va-calendar-header{
+    margin-bottom: 16px;
+  }
+
+  .va-calendar-header h4{
+    font-size: 16px;
+  }
+
+  .va-calendar-grid{
+    gap: 2px;
+  }
+
+  .va-calendar-day{
+    font-size: 12px;
+    min-height: 32px;
+    border-radius: 4px;
+  }
+
+  .va-calendar-day-header{
+    font-size: 10px;
+    padding: 4px 1px;
+  }
+
+  .va-calendar-nav button{
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .va-slots-grid{
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .va-slot-btn{
+    padding: 10px 6px;
+    font-size: 13px;
+  }
+
+  .va-booking-form select,
+  .va-booking-form input,
+  .va-booking-form textarea{
+    padding: 10px 12px;
+    font-size: 14px;
+    height: 44px;
+  }
+
+  .va-btn{
+    padding: 10px 16px;
+    font-size: 14px;
+    height: 44px;
+  }
+
+  .va-success-icon-circle{
+    width: 80px;
+    height: 80px;
+  }
+
+  .va-checkmark{
+    width: 80px;
+    height: 80px;
+  }
+
+  .va-success-content h3{
+    font-size: 20px !important;
+  }
+
+  .va-success-details{
+    padding: 16px !important;
   }
 }
 
@@ -824,7 +1081,7 @@ input {
 @media (max-width: 768px){
   .va-auth-options{
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 
   .va-customer-card{
@@ -838,18 +1095,40 @@ input {
     text-align: center;
   }
 
+  .va-customer-avatar{
+    width: 56px;
+    height: 56px;
+  }
+
+  .va-customer-avatar svg{
+    width: 32px;
+    height: 32px;
+  }
+
+  .va-customer-name{
+    font-size: 18px;
+  }
+
+  .va-customer-email{
+    font-size: 13px;
+  }
+
   .va-btn-logout{
     width: 100%;
     justify-content: center;
   }
 
   .va-radio-label{
-    padding: 24px 16px;
-    min-height: 120px;
+    padding: 20px 16px;
+    min-height: 110px;
   }
 
   .va-auth-form{
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .va-auth-form .va-field{
+    margin-bottom: 14px;
   }
 
   .va-grid{
@@ -859,14 +1138,90 @@ input {
 }
 
 @media (max-width: 640px){
+  .va-auth-options{
+    gap: 10px;
+  }
+
   .va-radio-label{
-    padding: 20px 12px;
+    padding: 16px 12px;
     min-height: 100px;
   }
 
   .va-radio-icon{
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 10px;
+  }
+
+  .va-radio-icon svg{
+    width: 22px;
+    height: 22px;
+  }
+
+  .va-radio-label strong{
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .va-radio-label small{
+    font-size: 12px;
+  }
+
+  .va-auth-form{
+    padding: 14px;
+  }
+
+  .va-auth-form input,
+  .va-auth-form textarea{
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .va-auth-form label{
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .va-customer-card{
+    padding: 16px;
+  }
+
+  .va-customer-avatar{
+    width: 48px;
+    height: 48px;
+  }
+
+  .va-customer-avatar svg{
+    width: 28px;
+    height: 28px;
+  }
+
+  .va-customer-greeting{
+    font-size: 12px;
+  }
+
+  .va-customer-name{
+    font-size: 16px;
+  }
+
+  .va-customer-email{
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px){
+  .va-auth-options{
+    gap: 8px;
+  }
+
+  .va-radio-label{
+    padding: 14px 10px;
+    min-height: 90px;
+  }
+
+  .va-radio-icon{
+    width: 38px;
+    height: 38px;
     margin-bottom: 8px;
   }
 
@@ -880,11 +1235,61 @@ input {
   }
 
   .va-radio-label small{
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .va-auth-form{
-    padding: 16px;
+    padding: 12px;
+  }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px){
+  /* Improve touch targets */
+  .va-calendar-day,
+  .va-slot-btn,
+  .va-btn,
+  .va-radio-label{
+    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.2);
+    touch-action: manipulation;
+  }
+
+  /* Prevent zoom on input focus */
+  .va-booking-form select,
+  .va-booking-form input,
+  .va-booking-form textarea,
+  .va-auth-form input,
+  .va-auth-form textarea{
+    font-size: 16px !important;
+  }
+
+  /* Ensure buttons are large enough for touch */
+  .va-calendar-nav button,
+  .va-slot-btn,
+  .va-btn{
+    min-height: 44px;
+  }
+
+  /* Better spacing for mobile */
+  .va-field{
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 480px){
+  /* Extra small screens */
+  .va-booking-form select,
+  .va-booking-form input{
+    min-height: 44px;
+  }
+
+  /* Ensure adequate spacing between interactive elements */
+  .va-slots-grid .va-slot-btn{
+    min-height: 44px;
+  }
+
+  .va-calendar-day{
+    min-height: 36px;
   }
 }
 
@@ -892,12 +1297,14 @@ input {
 .va-password-wrapper {
   position: relative;
   width: 100%;
+  max-width: 100%;
 }
 
 .va-password-wrapper input[type="password"],
 .va-password-wrapper input[type="text"] {
   width: 100% !important;
   padding-right: 50px !important;
+  box-sizing: border-box;
 }
 
 .va-password-toggle {
@@ -916,6 +1323,8 @@ input {
   transition: all 0.2s ease;
   z-index: 10;
   border-radius: 6px;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .va-password-toggle:hover {
@@ -926,4 +1335,23 @@ input {
 .va-password-toggle svg {
   width: 22px;
   height: 22px;
+}
+
+@media (max-width: 640px){
+  .va-password-toggle{
+    right: 8px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 4px;
+  }
+
+  .va-password-toggle svg{
+    width: 20px;
+    height: 20px;
+  }
+
+  .va-password-wrapper input[type="password"],
+  .va-password-wrapper input[type="text"]{
+    padding-right: 45px !important;
+  }
 }
