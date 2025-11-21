@@ -2605,11 +2605,97 @@ class Valcode_Appoint {
         $from_email = !empty($settings['smtp_user']) ? $settings['smtp_user'] : 'noreply@' . parse_url(home_url(), PHP_URL_HOST);
         $from_name = !empty($settings['smtp_from_name']) ? $settings['smtp_from_name'] : $blogname;
 
-        $message = '<p>Hallo ' . esc_html($staff->display_name) . ',</p>';
-        $message .= '<p>Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.</p>';
-        $message .= '<p><a href="' . esc_url($reset_link) . '">Klicken Sie hier, um Ihr Passwort zurückzusetzen</a></p>';
-        $message .= '<p>Dieser Link ist 1 Stunde gültig.</p>';
-        $message .= '<p>Falls Sie diese Anfrage nicht gestellt haben, ignorieren Sie diese E-Mail.</p>';
+        // Get design settings for email branding
+        $design = get_option('valcode_appoint_design', []);
+        $accent_color = $design['accent_color'] ?? '#6366f1';
+        $gradient_start = $design['accent_gradient_start'] ?? '#667eea';
+        $gradient_end = $design['accent_gradient_end'] ?? '#764ba2';
+
+        $message = '
+        <!DOCTYPE html>
+        <html lang="de">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Passwort zurücksetzen</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif; background-color: #f3f4f6; line-height: 1.6;">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0; padding: 0;">
+                <tr>
+                    <td style="padding: 40px 20px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;">
+                            <!-- Header with gradient -->
+                            <tr>
+                                <td style="background: linear-gradient(135deg, ' . esc_attr($gradient_start) . ' 0%, ' . esc_attr($gradient_end) . ' 100%); padding: 40px 30px; text-align: center;">
+                                    <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.1);">' . esc_html($blogname) . '</h1>
+                                </td>
+                            </tr>
+
+                            <!-- Content -->
+                            <tr>
+                                <td style="padding: 40px 30px;">
+                                    <h2 style="margin: 0 0 20px 0; color: #0f172a; font-size: 24px; font-weight: 700;">Passwort zurücksetzen</h2>
+
+                                    <p style="margin: 0 0 16px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                        Hallo <strong style="color: #0f172a;">' . esc_html($staff->display_name) . '</strong>,
+                                    </p>
+
+                                    <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                        Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt. Klicken Sie auf den Button unten, um ein neues Passwort zu setzen.
+                                    </p>
+
+                                    <!-- Button -->
+                                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px 0;">
+                                        <tr>
+                                            <td style="text-align: center;">
+                                                <a href="' . esc_url($reset_link) . '" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, ' . esc_attr($gradient_start) . ' 0%, ' . esc_attr($gradient_end) . ' 100%); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">Passwort zurücksetzen</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Info box -->
+                                    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 8px; margin: 0 0 24px 0;">
+                                        <p style="margin: 0; color: #065f46; font-size: 14px; line-height: 1.5;">
+                                            <strong style="display: block; margin-bottom: 4px;">Wichtig:</strong>
+                                            Dieser Link ist 1 Stunde gültig.
+                                        </p>
+                                    </div>
+
+                                    <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                                        Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:
+                                    </p>
+
+                                    <p style="margin: 0 0 24px 0; padding: 12px; background: #f9fafb; border-radius: 8px; word-break: break-all;">
+                                        <a href="' . esc_url($reset_link) . '" style="color: ' . esc_attr($accent_color) . '; font-size: 14px; text-decoration: none;">' . esc_html($reset_link) . '</a>
+                                    </p>
+
+                                    <!-- Warning box -->
+                                    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin: 0;">
+                                        <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.5;">
+                                            <strong style="display: block; margin-bottom: 4px;">Sie haben diese Anfrage nicht gestellt?</strong>
+                                            Ignorieren Sie diese E-Mail. Ihr Passwort bleibt unverändert.
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                                    <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+                                        Diese E-Mail wurde automatisch generiert.
+                                    </p>
+                                    <p style="margin: 0; color: #9ca3af; font-size: 13px;">
+                                        &copy; ' . date('Y') . ' ' . esc_html($blogname) . '. Alle Rechte vorbehalten.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>';
 
         $headers = [
             'Content-Type: text/html; charset=UTF-8',
@@ -3046,11 +3132,98 @@ class Valcode_Appoint {
         $reset_link = add_query_arg('valcode_reset', $token, $reset_page_url);
 
         $subject = 'Passwort zurücksetzen – ' . $blogname;
-        $message = '<p>Hallo ' . esc_html($customer->first_name) . ',</p>';
-        $message .= '<p>Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.</p>';
-        $message .= '<p><a href="' . esc_url($reset_link) . '">Klicken Sie hier, um Ihr Passwort zurückzusetzen</a></p>';
-        $message .= '<p>Dieser Link ist 1 Stunde gültig.</p>';
-        $message .= '<p>Falls Sie diese Anfrage nicht gestellt haben, ignorieren Sie diese E-Mail.</p>';
+
+        // Get design settings for email branding
+        $design = get_option('valcode_appoint_design', []);
+        $accent_color = $design['accent_color'] ?? '#6366f1';
+        $gradient_start = $design['accent_gradient_start'] ?? '#667eea';
+        $gradient_end = $design['accent_gradient_end'] ?? '#764ba2';
+
+        $message = '
+        <!DOCTYPE html>
+        <html lang="de">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Passwort zurücksetzen</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif; background-color: #f3f4f6; line-height: 1.6;">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0; padding: 0;">
+                <tr>
+                    <td style="padding: 40px 20px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;">
+                            <!-- Header with gradient -->
+                            <tr>
+                                <td style="background: linear-gradient(135deg, ' . esc_attr($gradient_start) . ' 0%, ' . esc_attr($gradient_end) . ' 100%); padding: 40px 30px; text-align: center;">
+                                    <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.1);">' . esc_html($blogname) . '</h1>
+                                </td>
+                            </tr>
+
+                            <!-- Content -->
+                            <tr>
+                                <td style="padding: 40px 30px;">
+                                    <h2 style="margin: 0 0 20px 0; color: #0f172a; font-size: 24px; font-weight: 700;">Passwort zurücksetzen</h2>
+
+                                    <p style="margin: 0 0 16px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                        Hallo <strong style="color: #0f172a;">' . esc_html($customer->first_name) . '</strong>,
+                                    </p>
+
+                                    <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                        Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt. Klicken Sie auf den Button unten, um ein neues Passwort zu setzen.
+                                    </p>
+
+                                    <!-- Button -->
+                                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px 0;">
+                                        <tr>
+                                            <td style="text-align: center;">
+                                                <a href="' . esc_url($reset_link) . '" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, ' . esc_attr($gradient_start) . ' 0%, ' . esc_attr($gradient_end) . ' 100%); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">Passwort zurücksetzen</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Info box -->
+                                    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 8px; margin: 0 0 24px 0;">
+                                        <p style="margin: 0; color: #065f46; font-size: 14px; line-height: 1.5;">
+                                            <strong style="display: block; margin-bottom: 4px;">Wichtig:</strong>
+                                            Dieser Link ist 1 Stunde gültig.
+                                        </p>
+                                    </div>
+
+                                    <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                                        Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:
+                                    </p>
+
+                                    <p style="margin: 0 0 24px 0; padding: 12px; background: #f9fafb; border-radius: 8px; word-break: break-all;">
+                                        <a href="' . esc_url($reset_link) . '" style="color: ' . esc_attr($accent_color) . '; font-size: 14px; text-decoration: none;">' . esc_html($reset_link) . '</a>
+                                    </p>
+
+                                    <!-- Warning box -->
+                                    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin: 0;">
+                                        <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.5;">
+                                            <strong style="display: block; margin-bottom: 4px;">Sie haben diese Anfrage nicht gestellt?</strong>
+                                            Ignorieren Sie diese E-Mail. Ihr Passwort bleibt unverändert.
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                                    <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+                                        Diese E-Mail wurde automatisch generiert.
+                                    </p>
+                                    <p style="margin: 0; color: #9ca3af; font-size: 13px;">
+                                        &copy; ' . date('Y') . ' ' . esc_html($blogname) . '. Alle Rechte vorbehalten.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>';
 
         $headers = [
             'Content-Type: text/html; charset=UTF-8',

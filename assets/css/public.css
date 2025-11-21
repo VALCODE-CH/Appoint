@@ -1820,3 +1820,509 @@ input {
     min-height: 44px !important;
   }
 }
+
+/* Password Reset Pages Responsive Styles */
+
+/* Staff Password Reset Request Page */
+@media (max-width: 768px){
+  #va-staff-reset-request-form .va-field{
+    margin-bottom: 20px !important;
+  }
+
+  #va-staff-reset-request-form input[type="email"]{
+    font-size: 16px !important;
+    min-height: 48px !important;
+    padding: 12px 16px !important;
+  }
+
+  #va-staff-reset-request-form button[type="submit"]{
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 15px !important;
+  }
+
+  #request-result{
+    margin-top: 16px !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+
+  /* Back to login link */
+  #va-staff-reset-request-form ~ p{
+    margin-top: 24px !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 640px){
+  #va-staff-reset-request-form .va-field{
+    margin-bottom: 16px !important;
+  }
+
+  #va-staff-reset-request-form input[type="email"]{
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+  }
+
+  #va-staff-reset-request-form button[type="submit"]{
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  #request-result{
+    padding: 10px !important;
+    font-size: 13px !important;
+  }
+
+  #va-staff-reset-request-form ~ p{
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 480px){
+  #va-staff-reset-request-form input[type="email"]{
+    font-size: 14px !important;
+  }
+
+  #va-staff-reset-request-form button[type="submit"]{
+    font-size: 13px !important;
+    padding: 10px 20px !important;
+  }
+
+  #request-result{
+    font-size: 12px !important;
+  }
+}
+
+/* Staff Password Reset Form (with token) */
+@media (max-width: 768px){
+  #va-staff-reset-form .va-field{
+    margin-bottom: 20px !important;
+  }
+
+  #va-staff-reset-form input[type="password"]{
+    font-size: 16px !important;
+    min-height: 48px !important;
+    padding: 12px 16px !important;
+  }
+
+  #va-staff-reset-form .description{
+    font-size: 13px !important;
+    margin-top: 6px !important;
+  }
+
+  #va-staff-reset-form button[type="submit"]{
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 15px !important;
+  }
+
+  #reset-result{
+    margin-top: 16px !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 640px){
+  #va-staff-reset-form .va-field{
+    margin-bottom: 16px !important;
+  }
+
+  #va-staff-reset-form input[type="password"]{
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+  }
+
+  #va-staff-reset-form .description{
+    font-size: 12px !important;
+  }
+
+  #va-staff-reset-form button[type="submit"]{
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  #reset-result{
+    padding: 10px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 480px){
+  #va-staff-reset-form input[type="password"]{
+    font-size: 14px !important;
+  }
+
+  #va-staff-reset-form button[type="submit"]{
+    font-size: 13px !important;
+    padding: 10px 20px !important;
+  }
+
+  #reset-result{
+    font-size: 12px !important;
+  }
+}
+
+/* Customer Password Reset Page (shortcode page) */
+
+/* Base styles for all screen sizes */
+.va-booking-form.va-card{
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 32px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.va-booking-form.va-card .va-field{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.va-booking-form.va-card input[type="password"],
+.va-booking-form.va-card input[type="email"],
+.va-booking-form.va-card input[type="text"]{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.va-booking-form.va-card .va-password-wrapper{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.va-booking-form.va-card button.va-btn{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.va-booking-form.va-card h2,
+.va-booking-form.va-card p{
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 768px){
+  /* Container for customer password reset */
+  body .va-booking-form.va-card,
+  .va-booking-form.va-card{
+    padding: 28px 20px !important;
+    margin: 10px auto !important;
+    max-width: calc(100% - 20px) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Headings on customer reset page */
+  body .va-booking-form.va-card h2,
+  .va-booking-form.va-card h2{
+    font-size: 22px !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* Paragraphs on customer reset page */
+  body .va-booking-form.va-card p,
+  .va-booking-form.va-card p{
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+    margin-bottom: 16px !important;
+    word-wrap: break-word !important;
+  }
+
+  /* Fields on customer reset page */
+  body .va-booking-form.va-card .va-field,
+  .va-booking-form.va-card .va-field{
+    margin-bottom: 20px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  body .va-booking-form.va-card .va-field label,
+  .va-booking-form.va-card .va-field label{
+    font-size: 14px !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+  }
+
+  body .va-booking-form.va-card input[type="password"],
+  .va-booking-form.va-card input[type="password"],
+  #va_new_password,
+  #va_new_password_confirm{
+    font-size: 16px !important;
+    min-height: 48px !important;
+    padding: 12px 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: block !important;
+  }
+
+  body .va-booking-form.va-card button.va-btn,
+  .va-booking-form.va-card button.va-btn,
+  #va_reset_password_btn{
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 48px !important;
+    font-size: 15px !important;
+    margin-top: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  #va_reset_result,
+  body .va-booking-form.va-card #va_reset_result{
+    margin-top: 16px !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+    max-width: 100% !important;
+    word-wrap: break-word !important;
+  }
+}
+
+@media (max-width: 640px){
+  body .va-booking-form.va-card,
+  .va-booking-form.va-card{
+    padding: 24px 16px !important;
+    margin: 8px auto !important;
+    max-width: calc(100% - 16px) !important;
+  }
+
+  body .va-booking-form.va-card h2,
+  .va-booking-form.va-card h2{
+    font-size: 20px !important;
+    margin-bottom: 14px !important;
+  }
+
+  body .va-booking-form.va-card p,
+  .va-booking-form.va-card p{
+    font-size: 14px !important;
+    margin-bottom: 14px !important;
+  }
+
+  body .va-booking-form.va-card .va-field,
+  .va-booking-form.va-card .va-field{
+    margin-bottom: 18px !important;
+  }
+
+  body .va-booking-form.va-card .va-field label,
+  .va-booking-form.va-card .va-field label{
+    font-size: 13px !important;
+    margin-bottom: 7px !important;
+  }
+
+  body .va-booking-form.va-card input[type="password"],
+  .va-booking-form.va-card input[type="password"],
+  #va_new_password,
+  #va_new_password_confirm{
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+    font-size: 16px !important;
+  }
+
+  body .va-booking-form.va-card button.va-btn,
+  .va-booking-form.va-card button.va-btn,
+  #va_reset_password_btn{
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  #va_reset_result,
+  body .va-booking-form.va-card #va_reset_result{
+    padding: 10px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 480px){
+  body .va-booking-form.va-card,
+  .va-booking-form.va-card{
+    padding: 20px 12px !important;
+    margin: 6px auto !important;
+    max-width: calc(100% - 12px) !important;
+  }
+
+  body .va-booking-form.va-card h2,
+  .va-booking-form.va-card h2{
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+  }
+
+  body .va-booking-form.va-card p,
+  .va-booking-form.va-card p{
+    font-size: 13px !important;
+    margin-bottom: 12px !important;
+  }
+
+  body .va-booking-form.va-card .va-field,
+  .va-booking-form.va-card .va-field{
+    margin-bottom: 16px !important;
+  }
+
+  body .va-booking-form.va-card .va-field label,
+  .va-booking-form.va-card .va-field label{
+    font-size: 13px !important;
+    margin-bottom: 6px !important;
+  }
+
+  body .va-booking-form.va-card input[type="password"],
+  .va-booking-form.va-card input[type="password"],
+  #va_new_password,
+  #va_new_password_confirm{
+    font-size: 16px !important;
+    min-height: 44px !important;
+    padding: 10px 12px !important;
+  }
+
+  body .va-booking-form.va-card button.va-btn,
+  .va-booking-form.va-card button.va-btn,
+  #va_reset_password_btn{
+    font-size: 14px !important;
+    padding: 12px 20px !important;
+    min-height: 44px !important;
+  }
+
+  #va_reset_result,
+  body .va-booking-form.va-card #va_reset_result{
+    font-size: 12px !important;
+    padding: 10px !important;
+  }
+}
+
+/* Customer Forgot Password Form (in booking flow) */
+@media (max-width: 768px){
+  #va_forgot_form .va-field{
+    margin-bottom: 16px !important;
+  }
+
+  #va_reset_email{
+    font-size: 16px !important;
+    min-height: 48px !important;
+    padding: 12px 16px !important;
+  }
+
+  #va_reset_request_btn{
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 15px !important;
+  }
+
+  #va_reset_msg{
+    margin-top: 12px !important;
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+
+  #va_forgot_form .description{
+    margin-top: 16px !important;
+    font-size: 14px !important;
+  }
+
+  #va_back_to_login{
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 640px){
+  #va_forgot_form .va-field{
+    margin-bottom: 14px !important;
+  }
+
+  #va_reset_email{
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+  }
+
+  #va_reset_request_btn{
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  #va_reset_msg{
+    padding: 10px !important;
+    font-size: 13px !important;
+  }
+
+  #va_forgot_form .description{
+    font-size: 13px !important;
+  }
+
+  #va_back_to_login{
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 480px){
+  #va_reset_email{
+    font-size: 14px !important;
+  }
+
+  #va_reset_request_btn{
+    font-size: 13px !important;
+    padding: 10px 20px !important;
+  }
+
+  #va_reset_msg{
+    font-size: 12px !important;
+  }
+
+  #va_forgot_form .description,
+  #va_back_to_login{
+    font-size: 12px !important;
+  }
+}
+
+/* General improvements for password reset pages - only for staff portal */
+@media (max-width: 768px){
+  /* Make staff portal headings responsive (not customer reset page) */
+  .va-booking-form .va-step h3{
+    font-size: 20px !important;
+  }
+
+  /* Better paragraph spacing on mobile for staff pages */
+  .va-booking-form .va-step p{
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 12px !important;
+  }
+}
+
+@media (max-width: 640px){
+  .va-booking-form .va-step h3{
+    font-size: 18px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .va-booking-form .va-step p{
+    font-size: 14px !important;
+    margin-bottom: 10px !important;
+  }
+}
+
+@media (max-width: 480px){
+  .va-booking-form .va-step h3{
+    font-size: 16px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .va-booking-form .va-step p{
+    font-size: 13px !important;
+  }
+}
+
+/* Touch targets for password reset links */
+@media (max-width: 768px){
+  #va_forgot_password_link,
+  #va_back_to_login,
+  .va-booking-form a{
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 8px 4px !important;
+    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.2);
+    touch-action: manipulation;
+  }
+}
