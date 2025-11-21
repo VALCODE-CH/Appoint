@@ -3391,28 +3391,39 @@ class Valcode_Appoint {
                     <button id="va-staff-logout" style="padding: 0 24px; font-size: 15px; background: #dc3545; color: white; border: none; border-radius: calc(var(--va-radius) - 2px); cursor: pointer; font-weight: 600; transition: all 0.2s; height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;">Abmelden</button>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px;">
-                    <div style="display: flex; gap: 30px; align-items: end; flex-wrap: wrap;">
-                        <div class="va-field" style="margin: 0;">
-                            <label for="filter-from">Von</label>
-                            <input type="date" id="filter-from" value="<?php echo date('Y-m-d'); ?>">
+                <!-- Mobile filter toggle button -->
+                <button id="va-mobile-filter-toggle" class="va-mobile-filter-toggle">
+                    <span>Filter & Ansicht</span>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <!-- Collapsible filter container -->
+                <div id="va-mobile-filter-container" class="va-mobile-filter-container" style="max-height: 1000px;">
+                    <div style="display: flex; justify-content: space-between; align-items: end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px;">
+                        <div style="display: flex; gap: 30px; align-items: end; flex-wrap: wrap;">
+                            <div class="va-field" style="margin: 0;">
+                                <label for="filter-from">Von</label>
+                                <input type="date" id="filter-from" value="<?php echo date('Y-m-d'); ?>">
+                            </div>
+                            <div class="va-field" style="margin: 0;">
+                                <label for="filter-to">Bis</label>
+                                <input type="date" id="filter-to" value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
+                            </div>
+                            <div style="margin-left: 30px;">
+                                <button id="load-appointments" class="va-btn">Termine laden</button>
+                            </div>
                         </div>
-                        <div class="va-field" style="margin: 0;">
-                            <label for="filter-to">Bis</label>
-                            <input type="date" id="filter-to" value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div style="display: flex; gap: 5px; background: #e9ecef; padding: 4px; border-radius: 8px; height: 52px; box-sizing: border-box;">
+                                <button id="view-calendar" class="va-view-toggle active" style="padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; background: white; color: #495057; transition: all 0.2s; height: 44px; display: inline-flex; align-items: center; justify-content: center;">Kalender</button>
+                                <button id="view-list" class="va-view-toggle" style="padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; background: transparent; color: #6c757d; transition: all 0.2s; height: 44px; display: inline-flex; align-items: center; justify-content: center;">Liste</button>
+                            </div>
+                            <?php if($can_create): ?>
+                            <button id="toggle-booking-form" class="va-btn" style="background: var(--va-accent, #6366f1); flex: 0 0 auto; white-space: nowrap;">+ Termin erstellen</button>
+                            <?php endif; ?>
                         </div>
-                        <div style="margin-left: 30px;">
-                            <button id="load-appointments" class="va-btn">Termine laden</button>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 15px; align-items: center;">
-                        <div style="display: flex; gap: 5px; background: #e9ecef; padding: 4px; border-radius: 8px; height: 52px; box-sizing: border-box;">
-                            <button id="view-calendar" class="va-view-toggle active" style="padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; background: white; color: #495057; transition: all 0.2s; height: 44px; display: inline-flex; align-items: center; justify-content: center;">Kalender</button>
-                            <button id="view-list" class="va-view-toggle" style="padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; background: transparent; color: #6c757d; transition: all 0.2s; height: 44px; display: inline-flex; align-items: center; justify-content: center;">Liste</button>
-                        </div>
-                        <?php if($can_create): ?>
-                        <button id="toggle-booking-form" class="va-btn" style="background: var(--va-accent, #6366f1); flex: 0 0 auto; white-space: nowrap;">+ Termin erstellen</button>
-                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -3491,6 +3502,25 @@ class Valcode_Appoint {
             var viewListBtn = document.getElementById('view-list');
             var currentView = 'calendar';
             var appointmentsData = [];
+
+            // Mobile filter toggle functionality
+            var mobileFilterToggle = document.getElementById('va-mobile-filter-toggle');
+            var mobileFilterContainer = document.getElementById('va-mobile-filter-container');
+            var filterIsCollapsed = false;
+
+            if(mobileFilterToggle && mobileFilterContainer){
+                mobileFilterToggle.addEventListener('click', function(){
+                    filterIsCollapsed = !filterIsCollapsed;
+
+                    if(filterIsCollapsed){
+                        mobileFilterContainer.classList.add('collapsed');
+                        mobileFilterToggle.classList.remove('active');
+                    } else {
+                        mobileFilterContainer.classList.remove('collapsed');
+                        mobileFilterToggle.classList.add('active');
+                    }
+                });
+            }
 
             // Logout functionality
             if(logoutBtn){
